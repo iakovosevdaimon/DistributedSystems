@@ -1,5 +1,5 @@
 public class ArtistName {
-    String artistName;
+    private String artistName;
 
     public ArtistName(String artistName) {
         this.artistName = artistName;

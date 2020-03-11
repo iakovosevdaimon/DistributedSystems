@@ -1,7 +1,7 @@
 public class MusicFile {
 
-    String trackName, artistName, albumInfo, genre;
-    byte[] musicFileExtract;
+    private String trackName, artistName, albumInfo, genre;
+    private byte[] musicFileExtract;
 
     public MusicFile(String trackName, String artistName, String albumInfo, String genre, byte[] musicFileExtract) {
         this.trackName = trackName;

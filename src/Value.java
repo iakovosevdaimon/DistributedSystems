@@ -1,5 +1,5 @@
 public class Value {
-    MusicFile musicFile;
+    private MusicFile musicFile;
 
     public Value(MusicFile musicFile) {
         this.musicFile = musicFile;
