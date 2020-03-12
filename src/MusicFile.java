@@ -1,4 +1,7 @@
-public class MusicFile {
+import java.io.IOException;
+import java.io.InputStream;
+
+public class MusicFile extends InputStream {
 
     private String trackName, artistName, albumInfo, genre;
     private byte[] musicFileExtract;
@@ -49,5 +52,10 @@ public class MusicFile {
 
     public void setMusicFileExtract(byte[] musicFileExtract) {
         this.musicFileExtract = musicFileExtract;
+    }
+
+    @Override
+    public int read() throws IOException {
+        return 0;
     }
 }
