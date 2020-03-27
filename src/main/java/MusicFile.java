@@ -1,7 +1,9 @@
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Serializable;
 
-public class MusicFile extends InputStream {
+
+public class MusicFile implements Serializable {
 
     private String trackName, artistName, albumInfo, genre;
     private byte[] musicFileExtract;
@@ -14,16 +16,14 @@ public class MusicFile extends InputStream {
         this.musicFileExtract=musicFileExtract;
     }
 
-    public String getTrackName() {
-        return trackName;
-    }
+
 
     public void setTrackName(String trackName) {
         this.trackName = trackName;
     }
 
     public String getArtistName() {
-        return artistName;
+        return this.artistName;
     }
 
     public void setArtistName(String artistName) {
@@ -31,7 +31,7 @@ public class MusicFile extends InputStream {
     }
 
     public String getAlbumInfo() {
-        return albumInfo;
+        return this.albumInfo;
     }
 
     public void setAlbumInfo(String albumInfo) {
@@ -39,7 +39,7 @@ public class MusicFile extends InputStream {
     }
 
     public String getGenre() {
-        return genre;
+        return this.genre;
     }
 
     public void setGenre(String genre) {
@@ -47,15 +47,14 @@ public class MusicFile extends InputStream {
     }
 
     public byte[] getMusicFileExtract() {
-        return musicFileExtract;
+        return this.musicFileExtract;
     }
 
     public void setMusicFileExtract(byte[] musicFileExtract) {
         this.musicFileExtract = musicFileExtract;
     }
 
-    @Override
-    public int read() {
-        return 0;
+    public String getThatTrackName() {
+        return this.trackName;
     }
 }
