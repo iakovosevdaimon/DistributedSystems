@@ -8,6 +8,8 @@ public class MusicFile implements Serializable {
     private String trackName, artistName, albumInfo, genre;
     private byte[] musicFileExtract;
 
+    public  MusicFile(){}
+
     public MusicFile(String trackName, String artistName, String albumInfo, String genre, byte[] musicFileExtract) {
         this.trackName = trackName;
         this.artistName = artistName;
@@ -54,7 +56,7 @@ public class MusicFile implements Serializable {
         this.musicFileExtract = musicFileExtract;
     }
 
-    public String getThatTrackName() {
+    public String getTrackName() {
         return this.trackName;
     }
 }
