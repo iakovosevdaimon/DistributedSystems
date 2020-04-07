@@ -1,0 +1,13 @@
+{
+  "Brokers" :[
+    {"name": "Broker 1",
+      "ip": "localshost",
+      "port": 5000
+    },
+    {"name" : "Broker 2",
+      "ip" : "localshost",
+      "port" : 5000},
+    {"name" : "Broker 3",
+      "ip" : "localshost",
+      "port" : 5000}
+  ]}
