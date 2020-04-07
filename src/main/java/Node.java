@@ -1,4 +1,5 @@
 import java.io.*;
+import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
@@ -15,7 +16,7 @@ public class Node {
     //private Scanner scn;
 
     public Node(){
-        this.brokers = new ArrayList<>();
+        //this.brokers = new ArrayList<>();
         //this.scn = new Scanner(System.in);
     }
 
@@ -30,7 +31,7 @@ public class Node {
         this.name = name;
         this.ip = ip;
         this.port = port;
-        this.brokers = new ArrayList<>();
+        //this.brokers = new ArrayList<>();
         //this.scn = new Scanner(System.in);
     }
 
@@ -67,9 +68,15 @@ public class Node {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        String toHash = this.getIp()+port;
-        Md5.calculateHash(toHash);
-        //if the list is static  brokers.add((Broker) this);
+        //read json file with information of brokers
+        List<String[]> list = Utility.readBrokers();
+        List<Broker> b =new ArrayList<>();
+        for(String[] l : list){
+            Broker br = new Broker(l[0],l[1],Integer.parseInt(l[2]));
+            b.add(br);
+        }
+        this.setBrokers(b);
+        //updateNodes();
     }
 
     public void connect(String ip, int port){
@@ -79,23 +86,26 @@ public class Node {
             // obtaining input and out streams
             this.out = new ObjectOutputStream(requestSocket.getOutputStream());
             this.in = new ObjectInputStream(requestSocket.getInputStream());
-            out.writeObject("First connection");
-            out.flush();
+            this.out.writeObject(this.getClass().getSimpleName());
+            this.out.flush();
         }catch(Exception e){
             e.printStackTrace();
-        }
-        finally {
             disconnect();
         }
     }
 
     public void disconnect(){
+        //update all other brokers that one comrade leaves
+        /*if(this instanceof Broker){
+            this.getBrokers().remove(this);
+            updateNodes();
+        }*/
         System.out.println("Closing this connection : " + this.requestSocket);
         try {
 
             this.requestSocket.close();
             System.out.println("Connection closed");
-        } catch (IOException e) {
+        } catch (Exception e) {
             System.out.println("Failed to disconnect");
             e.printStackTrace();
         }
@@ -110,7 +120,33 @@ public class Node {
     }
 
     //TODO INFORM THE BROKER ABOUT OTHER BROKERS
-    public void updateNodes(){}
+    //check again the logic
+    public void updateNodes(){
+        //TODO maybe thread to send simultaneously
+        for(Broker b: this.getBrokers()){
+            if(b.getPort()!=this.getPort() && ! b.getIp().equalsIgnoreCase(this.getIp()) && !b.getName().equalsIgnoreCase(this.getName())){
+                connect(b.getIp(),b.getPort());
+                try {
+                    //this.out.writeObject(b.getBrokers());
+                    this.out.writeObject(this);
+                    this.out.flush();
+                    //check this out
+                    this.setBrokers((List<Broker>) this.in.readObject());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                finally {
+                    disconnect();
+                }
+            }
+            //if i don't use it in the init of broker maybe I change it
+            else {
+                break;
+            }
+        }
+    }
+
+
 
     public List<Broker> getBrokers(){
         return this.brokers;
@@ -139,5 +175,30 @@ public class Node {
     public  void setName(String name){this.name=name;}
 
     public String getName(){return this.name;}
+
+    public void setSocket(Socket requestSocket){
+        this.requestSocket = requestSocket;
+    }
+
+    public void setOutputStream(ObjectOutputStream out){
+        this.out = out;
+    }
+
+    public void setInputStream(ObjectInputStream in){
+        this.in = in;
+    }
+
+    public Socket getSocket(){
+        return this.requestSocket;
+    }
+
+    public ObjectOutputStream getOutputStream(){
+        return this.out ;
+    }
+
+    public ObjectInputStream getInputStream(){
+        return this.in;
+    }
+
 
 }

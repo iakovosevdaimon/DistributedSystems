@@ -21,10 +21,6 @@ public class Md5 {
             // Convert byte array into signum representation
             no = new BigInteger(1, digest);
 
-            System.out.println(String.valueOf(no));
-            BigInteger res = no.mod(new BigInteger("172417846330272637300962415361370079674"));
-            System.out.println(res);
-
             // Convert message digest into hex value
             /*
             hash = no.toString(16);
@@ -57,22 +53,35 @@ public class Md5 {
         }
     }
 
+    public static BigInteger takeHash(String toHash){
+        BigInteger no = null;
+        try {
+            MessageDigest md = MessageDigest.getInstance("MD5");
+            md.update(toHash.getBytes());
+            byte[] digest = md.digest();
+            no = new BigInteger(1, digest);
+
+        } catch (NoSuchAlgorithmException e) {
+            System.out.println("Exception to calculate hash");
+            e.printStackTrace();
+        }
+        return no;
+    }
+
     public static BigInteger compareHashes(BigInteger n1, BigInteger n2){
         int c = n1.compareTo(n2);
-        switch(c) {
-            case 1:
-                return n1;
-
-            case -1:
-                return n2;
-
-            default:
-                return n1;
+        if(c < 0){
+            return n2;
         }
+        else if(c > 0){
+            return n1;
+        }
+        else
+            return n1;
     }
 
     public static BigInteger modulo(BigInteger n1, BigInteger n2){
-        //always n2 = minumum hash of brokers
+        //always n2 = minimum or maximum hash of brokers or must be max hash of brokers?
         return n1.mod(n2);
     }
 

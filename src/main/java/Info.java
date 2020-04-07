@@ -4,31 +4,33 @@ import java.util.HashMap;
 import java.util.List;
 
 public class Info implements Serializable {
-    private List<ArtistName> listOfArtists;
-    private HashMap<String, HashMap<String,Integer>> listOfBrokersInfo;
+    private static final long serialVersionUID = -3385262724434599429L;
+    private List<String[]> brokerInfo;
+    private HashMap<ArtistName,String[]> brokersRelatedArtists;
 
     public Info(){
-        this.listOfArtists = new ArrayList<>();
-        this.listOfBrokersInfo = new HashMap<>();
+        this.brokerInfo = new ArrayList<>();
+        this.brokersRelatedArtists = new HashMap<>();
     }
 
-    public Info(List<ArtistName> listOfArtists,HashMap<String, HashMap<String,Integer>> listOfBrokersInfo){
-        this.listOfArtists = listOfArtists;
-        this.listOfBrokersInfo = listOfBrokersInfo;
+    public Info(List<String[]> brokerInfo, HashMap<ArtistName,String[]> brokersRelatedArtists){
+        this.brokerInfo = brokerInfo;
+        this.brokersRelatedArtists = brokersRelatedArtists;
     }
 
-    public void setListOfArtists(List<ArtistName> listOfArtists){
-        this.listOfArtists=listOfArtists;
+    public void setBrokerInfo(List<String[]> brokerInfo){
+        this.brokerInfo=brokerInfo;
     }
 
-    public void setListOfBrokersInfo(HashMap<String, HashMap<String,Integer>> listOfBrokersInfo){
-        this.listOfBrokersInfo = listOfBrokersInfo;
+    public void setListOfBrokersInfo(HashMap<ArtistName,String[]> brokersRelatedArtists){
+        this.brokersRelatedArtists = brokersRelatedArtists;
     }
 
-    public List<ArtistName> getListOfArtists(){return this.listOfArtists;}
+    public List<String[]> getBrokerInfo(){return this.brokerInfo;}
 
-    public HashMap<String, HashMap<String,Integer>> getListOfBrokersInfo(){
-        return this.listOfBrokersInfo;
+    public HashMap<ArtistName,String[]> getListOfBrokersInfo(){
+        return this.brokersRelatedArtists;
     }
+
 
 }

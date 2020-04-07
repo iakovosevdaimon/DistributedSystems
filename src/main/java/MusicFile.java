@@ -2,15 +2,18 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
 
-
+//TODO may add id attribute
 public class MusicFile implements Serializable {
 
+    private static final long serialVersionUID = 5439530636323231447L;
     private String trackName, artistName, albumInfo, genre;
+    private int id;
     private byte[] musicFileExtract;
 
     public  MusicFile(){}
 
-    public MusicFile(String trackName, String artistName, String albumInfo, String genre, byte[] musicFileExtract) {
+    public MusicFile(int id, String trackName, String artistName, String albumInfo, String genre, byte[] musicFileExtract) {
+        this.id = id;
         this.trackName = trackName;
         this.artistName = artistName;
         this.albumInfo = albumInfo;
@@ -18,8 +21,8 @@ public class MusicFile implements Serializable {
         this.musicFileExtract=musicFileExtract;
     }
 
-
-
+    public void setId(int id){this.id=id;}
+    public int getId(){return this.id;}
     public void setTrackName(String trackName) {
         this.trackName = trackName;
     }
