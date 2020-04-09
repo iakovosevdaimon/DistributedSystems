@@ -1,6 +1,7 @@
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.math.BigInteger;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -8,7 +9,7 @@ import java.util.*;
 
 //I CAN USE HASHCODE INSTEAD OF MD5 hash
 //TODO use registeredCOnsumers, Publishers
-public class Broker extends Node{
+public class Broker extends Node implements Serializable {
     private HashMap<String, Socket> registeredConsumers; //may synchronization,may change position of key-vale
     private HashMap<String[], Socket> registeredPublishers;//may synchronization,may change position of key-vale
     private ServerSocket serverSocket;
@@ -16,8 +17,6 @@ public class Broker extends Node{
     private HashMap<ArtistName, String[]> relatedArtistsOfPubs;//may synchronization ArtistName->value: Publisher name,port,ip
     private List<ArtistName> relatedArtists; //may synchronization
     private HashMap<ArtistName,ArrayList<Queue<Value>>> queueOfSongs; //may not be used //may synchronization
-    private ObjectOutputStream out;
-    private ObjectInputStream in;
     private boolean isAlive=false;
 
 
@@ -35,9 +34,9 @@ public class Broker extends Node{
         this.relatedArtists = new ArrayList<>();
         this.queueOfSongs = new HashMap<>();
         this.isAlive = true;
+        this.hashCodeOfBroker = Md5.takeHash(this.getIp()+Integer.toString(port));
         super.init(port);
         this.update();
-        this.hashCodeOfBroker = Md5.takeHash(this.getIp()+Integer.toString(port));
         //maybe call it later
         super.updateNodes();
         connect(port);
@@ -57,19 +56,21 @@ public class Broker extends Node{
             while (true) {
                 try {
                     Socket s = serverSocket.accept();
-                    this.out = new ObjectOutputStream(s.getOutputStream());
-                    this.in = new ObjectInputStream(s.getInputStream());
+                    ObjectInputStream in = new ObjectInputStream(s.getInputStream());
+                    ObjectOutputStream out = new ObjectOutputStream(s.getOutputStream());
+                    //System.out.println("Problem");
                     String obj = (String) in.readObject();
+                    System.out.println(obj);
                     //may not use publisher handler here but a simple thread created with lambdas
                     if(obj.equalsIgnoreCase("Publisher")){
                         Thread job_publisher = new Thread(() ->
 
                         {
 
-                            calculateKeys(s,this.in,this.out);
+                            calculateKeys(s,in,out);
                             this.update();
                             super.updateNodes();
-                            this.informPublishers(s,this.out,this.in);
+                            this.informPublishers(s,in,out);
                         });
                         job_publisher.start();
                     }
@@ -78,23 +79,7 @@ public class Broker extends Node{
                     else if(obj.equalsIgnoreCase("Consumer")){
                         Thread job_consumer = new Thread(() ->
                         {
-                            Info info = createInfoObject();
-                            try {
-                                this.out.writeObject(info);
-                                String reg =(String) this.in.readObject();
-                                //TODO view again register AND else-> what to do ?
-                                if(reg.equalsIgnoreCase("Register")){
-                                    String con = (String) this.in.readObject();
-                                    this.getRegisteredConsumers().put(con,s);
-                                }
-                                //TODO
-                                else{}
-                                ArtistName a = (ArtistName) this.in.readObject();
-                                String song = (String) this.in.readObject();
-                                handleRequest(s,this.in,this.out, a, song);
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
+                           handleRequest(s,in,out);
                         });
                         job_consumer.start();
 
@@ -105,9 +90,10 @@ public class Broker extends Node{
                      *eite gia na kserei oti enas broker efuge
                      */
                     else if(obj.equalsIgnoreCase("Broker")){
+                        System.out.println("IN");
                         Thread job_broker = new Thread(() ->
                         {
-                           communicationOfBrokers(s,this.out,this.in);
+                           communicationOfBrokers(s,in,out);
                         });
                         job_broker.start();
                     }
@@ -131,7 +117,7 @@ public class Broker extends Node{
     }
 
     //TODO we must send all related artists of broker to publisher or only related artists of broker for which is responsible the specific publisher?
-    private void informPublishers(Socket s, ObjectOutputStream output, ObjectInputStream input) {
+    private void informPublishers(Socket s, ObjectInputStream input, ObjectOutputStream output) {
         String[] str = new String[3];
         str[0] = this.getName();
         str[1] = this.getIp();
@@ -146,61 +132,96 @@ public class Broker extends Node{
         }
     }
 
-    private void handleRequest(Socket s, ObjectInputStream input, ObjectOutputStream output, ArtistName a, String song){
-        String [] pub = null;
-        for(ArtistName art : this.getRelatedArtistsOfPubs().keySet()){
-            if(art.getArtistName().equalsIgnoreCase(a.getArtistName())){
-                pub= this.getRelatedArtistsOfPubs().get(art);
-                break;
+    private void handleRequest(Socket s,ObjectInputStream input, ObjectOutputStream output){
+        Socket pubrequest = null;
+        ObjectInputStream inpub = null;
+        ObjectOutputStream outpub = null;
+        try {
+            String check = (String) input.readObject();
+            if(check.equalsIgnoreCase("Wake up")){
+                Info info = createInfoObject();
+                output.writeObject(info);
+                output.flush();
             }
-        }
-        //TODO handle if song doesn't exist
-        if(pub!=null){
-            Socket pubrequest = null;
-            ObjectInputStream inpub = null;
-            ObjectOutputStream outpub = null;
-            try {
-                pubrequest = new Socket(pub[1],Integer.parseInt(pub[2]));
+            String reg =(String) input.readObject();
+            //TODO view again register AND else-> what to do ?
+            if(reg.equalsIgnoreCase("Register")){
+                String con = (String) input.readObject();
+                this.getRegisteredConsumers().put(con,s);
+            }
+            //TODO
+            else{}
+            ArtistName a = (ArtistName) input.readObject();
+            String song = (String) input.readObject();
+            String [] pub = null;
+            for(ArtistName art : this.getRelatedArtistsOfPubs().keySet()){
+                if(art.getArtistName().equalsIgnoreCase(a.getArtistName())){
+                    pub= this.getRelatedArtistsOfPubs().get(art);
+                    break;
+                }
+            }
+            //TODO handle if song doesn't exist
+            if(pub!=null) {
+                System.out.println(1);
+                pubrequest = new Socket(pub[1], Integer.parseInt(pub[2]));
                 inpub = new ObjectInputStream(pubrequest.getInputStream());
                 outpub = new ObjectOutputStream(pubrequest.getOutputStream());
-                Value value ;
+                Value value;
                 do {
                     value = pull(a, song, inpub, outpub);
+                    System.out.println(2);
+                    System.out.println(value);
                     output.writeObject(value);
                     output.flush();
-                    if(value.getFailure())
-                        break;
+                    if (value != null) {
+                        if (value.getFailure()) {
+                            break;
+                        }
+                    }
                 } while (value != null);
+            }
+            else {
+                Value value = new Value();
+                value.setFailure(true);
+                output.writeObject(value);
+                output.flush();
+                System.out.println("Unable to find capable publisher");
+            }
 
+            Info info = createInfoObject();
+            output.writeObject(info);
+            output.flush();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        finally {
+            try {
+                if(pubrequest!=null)
+                    pubrequest.close();
+                if(outpub!=null)
+                    outpub.close();
+                if(inpub!=null)
+                    inpub.close();
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            finally {
-                try {
-                    if(pubrequest!=null)
-                        pubrequest.close();
-                    if(outpub!=null)
-                        outpub.close();
-                    if(inpub!=null)
-                        inpub.close();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
         }
-        else
-            System.out.println("Unable to find capable publisher");
+
     }
 
     private Value pull(ArtistName artistName, String song, ObjectInputStream inpub, ObjectOutputStream outpub){
         Value v = null;
         try {
+            System.out.println(3);
             outpub.writeObject(artistName);
             outpub.flush();
             outpub.writeObject(song);
             outpub.flush();
             v = (Value) inpub.readObject();
+            System.out.println(3.1);
             if(v == null){
+                System.out.println(4);
                 outpub.writeObject(null);
                 outpub.flush();
                 outpub.writeObject(null);
@@ -223,6 +244,7 @@ public class Broker extends Node{
             st[1] = b.getIp();
             st[2] = Integer.toString(b.getPort());
             for(ArtistName a: b.getRelatedArtists()){
+                //System.out.println(a.getArtistName());
                 brokersRelatedArtists.put(a,st);
             }
             brokerInfo.add(st);
@@ -233,6 +255,7 @@ public class Broker extends Node{
     public void update(){
         for (int i=0; i<this.getBrokers().size(); i++){
             if(this.getBrokers().get(i).getName().equalsIgnoreCase(this.getName())&& this.getBrokers().get(i).getIp().equalsIgnoreCase(this.getIp()) && this.getBrokers().get(i).getPort() == this.getPort()){
+                System.out.println(this.getHashCodeOfBroker());
                 this.getBrokers().set(i, this);
                 break;
 
@@ -242,13 +265,22 @@ public class Broker extends Node{
 
 
     //method for inner-communication of brokers
-    private void communicationOfBrokers(Socket s, ObjectOutputStream output, ObjectInputStream input) {
+    private void communicationOfBrokers(Socket s,ObjectInputStream input, ObjectOutputStream output) {
         try {
+            System.out.println("communication 0");
             Broker nb = (Broker) input.readObject();
+            System.out.println("communication 0.1");
+            System.out.println(nb==null);
             synchronized (this.getBrokers()){
+                System.out.println(this.getBrokers().size());
                 for (int i=0; i<this.getBrokers().size(); i++){
+                    System.out.println("communication loop");
+                    System.out.println(this.getBrokers().get(i).getName());
+                    System.out.println(nb.getName());
                     if(this.getBrokers().get(i).getName().equalsIgnoreCase(nb.getName())&& this.getBrokers().get(i).getIp().equalsIgnoreCase(nb.getIp()) && this.getBrokers().get(i).getPort() == nb.getPort()){
+                        System.out.println("communication 1");
                         if(nb.getState()){
+                            System.out.println("communication 2");
                             this.getBrokers().set(i,nb);
                             break;
                         }
@@ -262,7 +294,7 @@ public class Broker extends Node{
     }
 
 
-    public void calculateKeys(Socket s, ObjectInputStream input, ObjectOutputStream output){
+    public void calculateKeys(Socket s,ObjectInputStream input, ObjectOutputStream output){
         //String toHash = this.getIp()+ Integer.toString(this.getPort());
         //this.hashCodeOfBroker=Md5.takeHash(toHash);
         //eite kateutheian stelnetai ena tetoio object HashMap<ArtistName,String[]> artists
@@ -272,7 +304,11 @@ public class Broker extends Node{
         BigInteger min = this.getHashCodeOfBroker();
         //find broker with maximum hash and broker with the previous hash of this broker's hash
         for(Broker b : this.getBrokers()){
+            //System.out.println(b.getName());
+            //System.out.println(b.getHashCodeOfBroker());
+            //System.out.println(this.getHashCodeOfBroker());
             if(b.getHashCodeOfBroker().compareTo(max)>=0){
+                //System.out.println(b.getHashCodeOfBroker());
                 max = b.getHashCodeOfBroker();
             }
             if((b.getHashCodeOfBroker().compareTo(previousMax)>=0) && (this.getHashCodeOfBroker().compareTo(previousMax)>0)){
@@ -287,20 +323,40 @@ public class Broker extends Node{
             String[] publisher = (String[]) input.readObject();
             List<ArtistName> listOfArtists = (List<ArtistName>) input.readObject();
             if(listOfArtists!=null && !listOfArtists.isEmpty()) {
+                //System.out.println(1);
                 for (ArtistName a : listOfArtists) {
-                    if (a != null){
-                        //else use hashCode()
-                        BigInteger hashArtist = Md5.takeHash(a.getArtistName());
-                        if(this.hashCodeOfBroker.compareTo(hashArtist)<=0){
-                            hashArtist = Md5.modulo(hashArtist,max);
-                        }
-
-                        if(previousMax.compareTo(hashArtist)<=0){
+                    if (a != null) {
+                        //System.out.println(2);
+                        if (this.getBrokers().size() == 1) {
+                            //System.out.println(5);
                             synchronized (this.getRelatedArtists()) {
                                 this.getRelatedArtists().add(a);
                             }
                             synchronized (this.getRelatedArtistsOfPubs()) {
-                                this.getRelatedArtistsOfPubs().put(a,publisher);
+                                this.getRelatedArtistsOfPubs().put(a, publisher);
+                            }
+                        }
+                        //else use hashCode()
+                        else {
+                            BigInteger hashArtist = Md5.takeHash(a.getArtistName());
+                            System.out.println(hashArtist);
+                            if (max.compareTo(hashArtist) <= 0) {
+                                System.out.println(3);
+                                System.out.println(this.hashCodeOfBroker);
+                                hashArtist = Md5.modulo(hashArtist, max);
+                                System.out.println(hashArtist);
+                            }
+                            System.out.println(hashArtist);
+                            System.out.println(previousMax.compareTo(hashArtist));
+                            System.out.println(this.hashCodeOfBroker.compareTo(hashArtist));
+                            if (previousMax.compareTo(hashArtist) <= 0 && this.hashCodeOfBroker.compareTo(hashArtist) >= 0) {
+                                System.out.println(4);
+                                synchronized (this.getRelatedArtists()) {
+                                    this.getRelatedArtists().add(a);
+                                }
+                                synchronized (this.getRelatedArtistsOfPubs()) {
+                                    this.getRelatedArtistsOfPubs().put(a, publisher);
+                                }
                             }
                         }
                     }

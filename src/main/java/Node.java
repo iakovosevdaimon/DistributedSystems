@@ -70,13 +70,14 @@ public class Node {
         }
         //read json file with information of brokers
         List<String[]> list = Utility.readBrokers();
-        List<Broker> b =new ArrayList<>();
-        for(String[] l : list){
-            Broker br = new Broker(l[0],l[1],Integer.parseInt(l[2]));
+        List<Broker> b = new ArrayList<>();
+        for (String[] l : list) {
+            Broker br = new Broker(l[0], l[1], Integer.parseInt(l[2]));
             b.add(br);
         }
         this.setBrokers(b);
         //updateNodes();
+
     }
 
     public void connect(String ip, int port){
@@ -124,10 +125,15 @@ public class Node {
     public void updateNodes(){
         //TODO maybe thread to send simultaneously
         for(Broker b: this.getBrokers()){
-            if(b.getPort()!=this.getPort() && ! b.getIp().equalsIgnoreCase(this.getIp()) && !b.getName().equalsIgnoreCase(this.getName())){
+            System.out.println(b.getName());
+            System.out.println(this.getName());
+            if((b.getPort()!=this.getPort() || ! b.getIp().equalsIgnoreCase(this.getIp())) && !b.getName().equalsIgnoreCase(this.getName())){
+                System.out.println(b.getName());
+                System.out.println(this.getName());
                 connect(b.getIp(),b.getPort());
                 try {
                     //this.out.writeObject(b.getBrokers());
+                    System.out.println(this.getName());
                     this.out.writeObject(this);
                     this.out.flush();
                     //check this out

@@ -23,7 +23,7 @@ public class Utility {
             if(folder.listFiles()!=null) {
                 for (File fileEntry : Objects.requireNonNull(folder.listFiles(), "folder must not be null")){
                     if (fileEntry.isDirectory()) {
-                        readSongs(regExp);
+                        return readSongs(regExp);
                     }
                     else {
                         songPath = fileEntry.getAbsolutePath();
@@ -229,19 +229,21 @@ public class Utility {
 
     /*
    public static void main(String[] args){
-        String s = "A-K";
-        List<List<MusicFile>> ls = readSongs(s);
-        System.out.println(ls.size());
-        for(List<MusicFile> lm:ls){
-            System.out.println(lm.size());
-            for(MusicFile m : lm) {
-                //System.out.println("SONG DETAILS:");
-                //System.out.println(m.getTrackName());
-                System.out.println(m.getArtistName());
-                //System.out.println(m.getAlbumInfo());
-                //System.out.println(m.getGenre());
+        String s = "A-M";
+        HashMap<ArtistName, HashMap<String, Queue<MusicFile>>> ls = readSongs(s);
+        //System.out.println(ls.size());
+        for(ArtistName a : ls.keySet()){
+            //System.out.println(lm.size());
+            for(String m : ls.get(a).keySet()) {
+                for(MusicFile mf : ls.get(a).get(m)) {
+                    //System.out.println(m.getAlbumInfo());
+                    //System.out.println(m.getGenre());
+                    //System.out.println("SONG DETAILS:");
+                    System.out.println(mf.getTrackName());
+                }
             }
-        }
+        }*/
+        /*
        List<String[]> brokers = readBrokers();
        for(String[] b : brokers){
            for(int i=0; i< b.length; i++){
@@ -249,8 +251,8 @@ public class Utility {
                System.out.println(port);
                System.out.println(b[i]);
            }
-       }
-    }*/
+       }*/
+    //}
 
 
 

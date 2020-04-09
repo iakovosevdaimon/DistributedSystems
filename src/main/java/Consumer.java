@@ -49,8 +49,8 @@ public class Consumer extends Node{
         try {
             //HOUSTON MAY HAVE A PROBLEM OR GET THE LIST OF INFO OBJECTS
             //listOfBrokers = (List<Broker>) in.readObject();
-            this.info = (Info) in.readObject();
-            setInfo(this.info);
+            this.out.writeObject("Wake up");
+            this.out.flush();
             findCorrespondingBroker();
         } catch (Exception e) {
             e.printStackTrace();
@@ -61,42 +61,54 @@ public class Consumer extends Node{
     }
 
     private void findCorrespondingBroker() {
-        System.out.println("Give artist name: ");
-        //check if input is correct and not /n char
-        String artist = scn.nextLine();
-        boolean isOK = false;
-        String[] cb = null;
-        ArtistName artistName = null;
-        //Changes if we use Info object
-        while (!isOK) {
-            while (artist.isEmpty()) {
-                System.out.println("Invalid artist name. Try again");
-                System.out.println("Give artist name: ");
-                artist = scn.nextLine();
-            }
-            artistName = new ArtistName(artist);
-            for (ArtistName a : this.getInfo().getListOfBrokersInfo().keySet()) {
-                if (a.getArtistName().equals(artistName.getArtistName())) {
-                    isOK = true;
-                    break;
+
+        try {
+            this.info = (Info) this.in.readObject();
+            setInfo(this.info);
+            System.out.println("Give artist name: ");
+            //check if input is correct and not /n char
+            String artist = scn.nextLine().trim();
+            boolean isOK = false;
+            String[] cb = null;
+            ArtistName artistName = null;
+            //Changes if we use Info object
+            while (!isOK) {
+                while (artist.isEmpty()) {
+                    System.out.println("Invalid artist name. Try again");
+                    System.out.println("Give artist name: ");
+                    artist = scn.nextLine().trim();
                 }
-                if (isOK) {
-                    cb = this.getInfo().getListOfBrokersInfo().get(a);
-                    break;
+                artistName = new ArtistName(artist);
+                //System.out.println(this.getInfo().getListOfBrokersInfo().keySet().isEmpty());
+                for (ArtistName a : this.getInfo().getListOfBrokersInfo().keySet()) {
+                    //TODO INFORM USER FOR AVAILABLE ARTISTS IF HE GIVES WRONG ARTIST NAMEK
+                    //System.out.println(a.getArtistName());
+                    //System.out.println(this.getInfo().getListOfBrokersInfo().get(a)[0]);
+                    //System.out.println(artistName.getArtistName());
+                    if (a.getArtistName().equals(artistName.getArtistName())) {
+                        isOK = true;
+                        cb = this.getInfo().getListOfBrokersInfo().get(a).clone();
+                        break;
+                    }
+                }
+                if (!isOK) {
+                    System.out.println("Artist name is not founded");
+                    System.out.println("Please give an other artist name: ");
+                    artist = scn.nextLine().trim();
                 }
             }
-            if (!isOK) {
-                System.out.println("Artist name is not founded");
-                System.out.println("Please give an other artist name: ");
-                artist = scn.nextLine();
-            }
+            register(cb,artistName);
+
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        register(cb,artistName);
     }
 
     //Changes if we use Info object
     //VIEW THE REGISTER MAYBE IT WANT TO CHECK IF STREAM IS OPEN IN ORDER TO SEND MESSAGE REGISTER
     private void register(String[] broker, ArtistName artistName){
+        //System.out.println(broker);
+        //System.out.println(artistName);
         if(broker!=null && artistName!=null){
             if((broker[1].equals(this.getIp())) && (Integer.parseInt(broker[2]) == this.getPort())){
                 /*
@@ -129,25 +141,14 @@ public class Consumer extends Node{
                 super.disconnect();
                 this.setPort(Integer.parseInt(broker[2]));
                 this.setIp(broker[1]);
-                //if super.disconnect(); doesn't work
-                /*
-                try {
-                    this.requestSocket.close();
-                    this.out.close();
-                    this.in.close();
-
-                } catch (IOException e) {
-                    System.out.println("Failed to disconnect");
-                    e.printStackTrace();
-                }*/
                 try {
                     super.connect(this.getIp(),this.getPort());
                     this.requestSocket=this.getSocket();
                     this.out = this.getOutputStream();
                     this.in = this.getInputStream();
                     System.out.println("Success to connected to "+broker[0]);
-                    out.writeObject(this.getClass().getSimpleName());
-                    out.flush();
+                    this.out.writeObject("Already up");
+                    this.out.flush();
                     this.out.writeObject("Register");
                     this.out.flush();
                     this.out.writeObject(this.getName());
@@ -184,34 +185,65 @@ public class Consumer extends Node{
         //boolean isExit = false;
 
         System.out.println("Give name of song that you want to listen from artist "+artistName.getArtistName()+" : ");
-        String song = scn.nextLine();
+        String song = scn.nextLine().trim();
         while (song.isEmpty()) {
             System.out.println("Invalid song name for this artist. Try again");
             System.out.println("Give song's name: ");
-            song = scn.nextLine();
+            song = scn.nextLine().trim();
         }
         try {
             this.out.writeObject(artistName);
             this.out.flush();
             this.out.writeObject(song);
             this.out.flush();
+            /*
+            List<Value> valueList = new ArrayList<>();
             Value v = (Value) this.in.readObject();
+            if (v.getFailure()) {
+                System.out.println("Failure -> Possibly there is not song with this name");
+            }
+            valueList.add(v);
+            //save(v);
             //TODO save chunks or merge them
-            while (v!=null){
+            while (v!=null && !v.getFailure()){
                 v = (Value) this.in.readObject();
-                if(v.getFailure()){
+                System.out.println(v);
+                valueList.add(v);
+                Thread job = new Thread(() ->
+                {
+                    save(v);
+
+                });
+                job.start();
+                //save chunks or merge them
+                //save(v);
+            }
+            saveList(valueList);
+            */
+            //boolean isNull = false;
+            while(true){
+                Value v = (Value) this.in.readObject();
+                //System.out.println(v);
+                if(v==null)
+                    break;
+                if(v.getFailure()) {
                     System.out.println("Failure -> Possibly there is not song with this name");
                     break;
                 }
-                //save chunks or merge them
-                save(v);
+
+                Thread job = new Thread(() ->
+                {
+                    save(v);
+
+                });
+                job.start();
             }
             System.out.println("Press continue if you want to listen an other songs. Else press exit: ");
-            String ans1 = scn.nextLine();
+            String ans1 = scn.nextLine().trim();
             while (!(ans1.equalsIgnoreCase("continue")) && !(ans1.equalsIgnoreCase("exit"))){
                 System.out.println("Invalid answer. Try again");
                 System.out.println("Press continue if you want to listen an other songs. Else press exit: ");
-                ans1 = scn.nextLine();
+                ans1 = scn.nextLine().trim();
             }
             if(ans1.equalsIgnoreCase("continue")) {
                 this.setPort(-1);
@@ -224,18 +256,124 @@ public class Consumer extends Node{
     }
 
     //TODO save method -> write chunk with metadata
+    private void saveList(List<Value> list) {
+        File currentDirectory = new File(new File(".").getAbsolutePath());
+        String currentDirectoryPath = currentDirectory.getAbsolutePath()
+                .substring(0,currentDirectory.getAbsolutePath().length() - 1);
+        String basePath = currentDirectoryPath+"Saved Songs\\";
+        OutputStream outstream = null;
+        for(Value v : list) {
+            if (v != null) {
+                MusicFile m = v.getMusicFile();
+                String fileName = m.getArtistName() + "-" + m.getTrackName() + Integer.toString(m.getId()) + ".mp3";
+                String path = basePath + fileName;
+                try {
+                    File of = new File(basePath, fileName);
+                    outstream = new FileOutputStream(of);
+                    outstream.write(m.getMusicFileExtract());
+                    Mp3File chunk = new Mp3File(path);
+                    ID3v2 id3v2Tag;
+                    if (chunk.hasId3v2Tag()) {
+                        id3v2Tag = chunk.getId3v2Tag();
+                    } else {
+                        id3v2Tag = new ID3v24Tag();
+                        chunk.setId3v2Tag(id3v2Tag);
+                    }
+                    id3v2Tag.setTrack(m.getTrackName());
+                    id3v2Tag.setArtist(m.getArtistName());
+                    id3v2Tag.setAlbum(m.getAlbumInfo());
+                    id3v2Tag.setGenreDescription(m.getGenre());
+                    //TODO check it again
+                    //chunk.save(path);
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    try {
+                        if(outstream!=null)
+                            outstream.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+
+        }
+    }
+
     private void save(Value v) {
         File currentDirectory = new File(new File(".").getAbsolutePath());
         String currentDirectoryPath = currentDirectory.getAbsolutePath()
                 .substring(0,currentDirectory.getAbsolutePath().length() - 1);
         String basePath = currentDirectoryPath+"Saved Songs\\";
-        MusicFile m = v.getMusicFile();
-        String fileName = m.getArtistName()+"-"+m.getTrackName()+Integer.toString(m.getId())+".mp3";
+        OutputStream outstream = null;
+
+        if (v != null) {
+            MusicFile m = v.getMusicFile();
+            String fileName = m.getArtistName() + "-" + m.getTrackName() + Integer.toString(m.getId()) + ".mp3";
+            String path = basePath + fileName;
+            try {
+                File of = new File(basePath, fileName);
+                outstream = new FileOutputStream(of);
+                outstream.write(m.getMusicFileExtract());
+                Mp3File chunk = new Mp3File(path);
+                ID3v2 id3v2Tag;
+                if (chunk.hasId3v2Tag()) {
+                    id3v2Tag = chunk.getId3v2Tag();
+                } else {
+                    id3v2Tag = new ID3v24Tag();
+                    chunk.setId3v2Tag(id3v2Tag);
+                }
+                id3v2Tag.setTrack(m.getTrackName());
+                id3v2Tag.setArtist(m.getArtistName());
+                id3v2Tag.setAlbum(m.getAlbumInfo());
+                id3v2Tag.setGenreDescription(m.getGenre());
+                //TODO check it again
+                //chunk.save(path);
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                try {
+                    if(outstream!=null)
+                        outstream.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    public void mergeChunks(List<Value> listOfValues){
+        byte[] reader = null;
+        int count = 0;
+        for(Value v : listOfValues) {
+            if(count==0){
+                reader = v.getMusicFile().getMusicFileExtract();
+            }
+            else{
+                int valueSize = v.getMusicFile().getMusicFileExtract().length;
+                int combined = reader.length+ valueSize;
+                byte[] temp = new byte[combined];
+                for (int i = 0; i < combined; ++i) {
+                    temp[i] = i < reader.length ? reader[i] : v.getMusicFile().getMusicFileExtract()[i - reader.length];
+                }
+                reader = temp;
+            }
+            count++;
+        }
+        File currentDirectory = new File(new File(".").getAbsolutePath());
+        String currentDirectoryPath = currentDirectory.getAbsolutePath()
+                .substring(0,currentDirectory.getAbsolutePath().length() - 1);
+        String basePath = currentDirectoryPath+"Saved Songs\\";
+        OutputStream outstream = null;
+        MusicFile m = listOfValues.get(0).getMusicFile();
+        String fileName = m.getArtistName() + "-" + m.getTrackName() + ".mp3";
         String path = basePath + fileName;
         try {
             File of = new File(basePath, fileName);
-            OutputStream out = new FileOutputStream(of);
-            out.write(m.getMusicFileExtract());
+            outstream = new FileOutputStream(of);
+            outstream.write(reader);
             Mp3File chunk = new Mp3File(path);
             ID3v2 id3v2Tag;
             if (chunk.hasId3v2Tag()) {
@@ -248,21 +386,23 @@ public class Consumer extends Node{
             id3v2Tag.setArtist(m.getArtistName());
             id3v2Tag.setAlbum(m.getAlbumInfo());
             id3v2Tag.setGenreDescription(m.getGenre());
-            chunk.save(path);
+            //TODO check it again
+            //chunk.save(path);
 
         } catch (Exception e) {
             e.printStackTrace();
-        }
-        finally {
+        } finally {
             try {
-                out.close();
+                if(outstream!=null)
+                    outstream.close();
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
-
-
     }
+
+
+
 
     @Override
     public void disconnect(){
@@ -298,9 +438,9 @@ public class Consumer extends Node{
     public static void main(String args[]){
         //may auto-generate name and it is not needed to be given by keyboard
         /*args[0]->name
-          args[1]->IP
-          args[2]->Port
+          args[1]->IP broker
+          args[2]->Port broker
          */
-        new Consumer(args[0],args[1],Integer.parseInt(args[2])).connect(args[1],Integer.parseInt(args[2]));
+        new Consumer(args[0],args[1],Integer.parseInt(args[2]));
     }
 }
