@@ -6,6 +6,8 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.*;
 
+import static java.lang.Thread.sleep;
+
 //TODO use registeredBrokers
 public class Publisher extends Node{
     //private List<ArtistName> relatedArtists;
@@ -17,8 +19,8 @@ public class Publisher extends Node{
     private List<String[]> listOfBrokers;
     private String keys;
     private String publisherIp;
-    private ObjectInputStream in;
-    private ObjectOutputStream out;
+    //private ObjectInputStream in;
+    //private ObjectOutputStream out;
     private ServerSocket serverSocket;
 
 
@@ -82,11 +84,11 @@ public class Publisher extends Node{
             while (true) {
                 try {
                     Socket s = serverSocket.accept();
-                    this.out = new ObjectOutputStream(s.getOutputStream());
-                    this.in = new ObjectInputStream(s.getInputStream());
+                    ObjectOutputStream out = new ObjectOutputStream(s.getOutputStream());
+                    ObjectInputStream in = new ObjectInputStream(s.getInputStream());
                     Thread job = new Thread(() ->
                     {
-                        handleRequest(s,this.out,this.in);
+                        handleRequest(s,out,in);
 
                     });
                     job.start();
@@ -146,6 +148,8 @@ public class Publisher extends Node{
                     System.out.println(4);
                     Value v = push(index1,tem_queue);
                     output.writeObject(v);
+                    //TODO sleep may not be used if i use threads in save in consumer
+                    //sleep(1000);
                     artist =(ArtistName) input.readObject();
                     song = (String) input.readObject();
                 }while(artist!=null && song!=null);

@@ -5,7 +5,7 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.*;
 
-public class Node {
+public class Node{
     //maybe static ?
     private List<Broker> brokers ;
     private String name, ip;
@@ -134,6 +134,13 @@ public class Node {
                 try {
                     //this.out.writeObject(b.getBrokers());
                     System.out.println(this.getName());
+                    /*
+                    FileOutputStream f = new FileOutputStream(new File("this.txt"));
+                    ObjectOutputStream o = new ObjectOutputStream(f);
+                    Broker br = (Broker) this;
+                    o.writeObject(br);
+                    o.flush();
+                    o.close();*/
                     this.out.writeObject(this);
                     this.out.flush();
                     //check this out

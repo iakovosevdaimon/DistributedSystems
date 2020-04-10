@@ -82,10 +82,10 @@ public class Consumer extends Node{
                 //System.out.println(this.getInfo().getListOfBrokersInfo().keySet().isEmpty());
                 for (ArtistName a : this.getInfo().getListOfBrokersInfo().keySet()) {
                     //TODO INFORM USER FOR AVAILABLE ARTISTS IF HE GIVES WRONG ARTIST NAMEK
-                    //System.out.println(a.getArtistName());
+                    System.out.println(a.getArtistName());
                     //System.out.println(this.getInfo().getListOfBrokersInfo().get(a)[0]);
-                    //System.out.println(artistName.getArtistName());
-                    if (a.getArtistName().equals(artistName.getArtistName())) {
+                    System.out.println(artistName.getArtistName());
+                    if (a.getArtistName().equalsIgnoreCase(artistName.getArtistName())) {
                         isOK = true;
                         cb = this.getInfo().getListOfBrokersInfo().get(a).clone();
                         break;
@@ -196,7 +196,29 @@ public class Consumer extends Node{
             this.out.flush();
             this.out.writeObject(song);
             this.out.flush();
+
+
+            //1st
+            List<Value> valueList = new ArrayList<>();
+            Value v = (Value) this.in.readObject();
+            if (v.getFailure()) {
+                System.out.println("Failure -> Possibly there is not song with this name");
+            }
+            else {
+                valueList.add(v);
+                save(v);
+                while (true) {
+                    v = (Value) this.in.readObject();
+                    if(v==null)
+                        break;
+                    valueList.add(v);
+                    save(v);
+                }
+                mergeChunks(valueList);
+            }
+            //UNTIL HERE
             /*
+            //2nd
             List<Value> valueList = new ArrayList<>();
             Value v = (Value) this.in.readObject();
             if (v.getFailure()) {
@@ -220,7 +242,8 @@ public class Consumer extends Node{
             }
             saveList(valueList);
             */
-            //boolean isNull = false;
+            /*
+            //3rd
             while(true){
                 Value v = (Value) this.in.readObject();
                 //System.out.println(v);
@@ -237,7 +260,7 @@ public class Consumer extends Node{
 
                 });
                 job.start();
-            }
+            }*/
             System.out.println("Press continue if you want to listen an other songs. Else press exit: ");
             String ans1 = scn.nextLine().trim();
             while (!(ans1.equalsIgnoreCase("continue")) && !(ans1.equalsIgnoreCase("exit"))){
@@ -310,7 +333,7 @@ public class Consumer extends Node{
 
         if (v != null) {
             MusicFile m = v.getMusicFile();
-            String fileName = m.getArtistName() + "-" + m.getTrackName() + Integer.toString(m.getId()) + ".mp3";
+            String fileName = m.getArtistName() + "-" + m.getTrackName() +"_"+Integer.toString(m.getId()) + ".mp3";
             String path = basePath + fileName;
             try {
                 File of = new File(basePath, fileName);

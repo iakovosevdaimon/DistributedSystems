@@ -16,7 +16,8 @@ public class Utility {
 
     public static HashMap<ArtistName, HashMap<String, Queue<MusicFile>>> readSongs(String regExp){
         String reguralExpression = "^["+regExp+"].*$";
-        File folder = getDatasetFolder();
+        //File folder = getDatasetFolder();
+        File folder = new File("E:\\Users\\IAKOVOS\\Desktop\\DISTIRBUTED\\dataset2") ;
         HashMap<ArtistName, HashMap<String, Queue<MusicFile>>> listOfSongs = new HashMap<>();
         if(folder!=null){
             String songPath;
@@ -55,6 +56,7 @@ public class Utility {
                                     BufferedInputStream bis = new BufferedInputStream(input);
                                     int bytesAmount = 0;
                                     while ((bytesAmount = bis.read(buffer)) > 0) {
+                                        //System.out.println(bytesAmount);
                                         MusicFile sing = new MusicFile();
                                         sing.setArtistName(id3v2Tag.getArtist());
                                         //String albumInfo = id3v2Tag.getAlbum()+" "+id3v2Tag.getAlbumArtist();
@@ -70,10 +72,13 @@ public class Utility {
                                         sing.setMusicFileExtract(buffer);
                                         chunks.add(sing);
                                         chunksCounter++;
+                                        buffer = new byte[chunkSize];
+
                                     }
                                     String title = fileEntry.getName();
                                     int index = title.indexOf(".mp3");
                                     title = title.substring(0, index);
+
                                     if(listOfSongs.isEmpty()){
                                         ArtistName a = new ArtistName(artist);
                                         HashMap<String, Queue<MusicFile>> songs = new HashMap<>();
@@ -81,10 +86,18 @@ public class Utility {
                                         listOfSongs.put(a,songs);
                                     }
                                     else{
+                                        boolean isIn = false;
                                         for(ArtistName art : listOfSongs.keySet()){
                                             if(art.getArtistName().equalsIgnoreCase(artist)){
                                                 listOfSongs.get(art).put(title,chunks);
+                                                isIn = true;
                                             }
+                                        }
+                                        if(!isIn){
+                                            ArtistName a = new ArtistName(artist);
+                                            HashMap<String, Queue<MusicFile>> songs = new HashMap<>();
+                                            songs.put(title,chunks);
+                                            listOfSongs.put(a,songs);
                                         }
                                     }
                                     try {
@@ -223,37 +236,4 @@ public class Utility {
             return list;
         }
     }
-
-
-
-
-    /*
-   public static void main(String[] args){
-        String s = "A-M";
-        HashMap<ArtistName, HashMap<String, Queue<MusicFile>>> ls = readSongs(s);
-        //System.out.println(ls.size());
-        for(ArtistName a : ls.keySet()){
-            //System.out.println(lm.size());
-            for(String m : ls.get(a).keySet()) {
-                for(MusicFile mf : ls.get(a).get(m)) {
-                    //System.out.println(m.getAlbumInfo());
-                    //System.out.println(m.getGenre());
-                    //System.out.println("SONG DETAILS:");
-                    System.out.println(mf.getTrackName());
-                }
-            }
-        }*/
-        /*
-       List<String[]> brokers = readBrokers();
-       for(String[] b : brokers){
-           for(int i=0; i< b.length; i++){
-               int port = Integer.parseInt(b[2]);
-               System.out.println(port);
-               System.out.println(b[i]);
-           }
-       }*/
-    //}
-
-
-
 }
