@@ -218,6 +218,7 @@ public class Broker extends Node implements Serializable {
         }
         finally {
             try {
+                s.close();
                 input.close();
                 output.close();
                 if(pubrequest!=null) {
