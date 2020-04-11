@@ -1,7 +1,2 @@
 # Default ignored files
 /workspace.xml
-# exclude everything
-DistributedSystems2020/Saved Songs/*
-
-# exception to the rule
-!DistributedSystems2020/Saved Songs/.gitkeep
