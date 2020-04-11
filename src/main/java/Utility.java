@@ -48,62 +48,63 @@ public class Utility {
                                 String artist = id3v2Tag.getArtist();
                                 String[] tokens = artist.split(" ");
                                 if(tokens[0].matches(reguralExpression)) {
-                                    Queue<MusicFile> chunks = new LinkedList<>();
-                                    input = new FileInputStream(fileEntry);
-                                    int chunksCounter = 0;
-                                    int chunkSize = 512 * 1024; //512kb Size
-                                    byte[] buffer = new byte[chunkSize];
-                                    BufferedInputStream bis = new BufferedInputStream(input);
-                                    int bytesAmount = 0;
-                                    while ((bytesAmount = bis.read(buffer)) > 0) {
-                                        //System.out.println(bytesAmount);
-                                        MusicFile sing = new MusicFile();
-                                        sing.setArtistName(id3v2Tag.getArtist());
-                                        //String albumInfo = id3v2Tag.getAlbum()+" "+id3v2Tag.getAlbumArtist();
-                                        String albumInfo = id3v2Tag.getAlbum();
-                                        sing.setId(chunksCounter);
-                                        sing.setAlbumInfo(albumInfo);
-                                        String genre = id3v2Tag.getGenre() + " (" + id3v2Tag.getGenreDescription() + ")";
-                                        sing.setGenre(genre);
+                                    if(id3v2Tag.getArtist()!=null) {
+                                        Queue<MusicFile> chunks = new LinkedList<>();
+                                        input = new FileInputStream(fileEntry);
+                                        int chunksCounter = 0;
+                                        int chunkSize = 512 * 1024; //512kb Size
+                                        byte[] buffer = new byte[chunkSize];
+                                        BufferedInputStream bis = new BufferedInputStream(input);
+                                        int bytesAmount = 0;
+                                        while ((bytesAmount = bis.read(buffer)) > 0) {
+                                            //System.out.println(bytesAmount);
+                                            MusicFile sing = new MusicFile();
+                                            sing.setArtistName(id3v2Tag.getArtist());
+                                            //String albumInfo = id3v2Tag.getAlbum()+" "+id3v2Tag.getAlbumArtist();
+                                            String albumInfo = id3v2Tag.getAlbum();
+                                            sing.setId(chunksCounter);
+                                            sing.setAlbumInfo(albumInfo);
+                                            String genre = id3v2Tag.getGenre() + " (" + id3v2Tag.getGenreDescription() + ")";
+                                            sing.setGenre(genre);
+                                            String title = fileEntry.getName();
+                                            int index = title.indexOf(".mp3");
+                                            title = title.substring(0, index);
+                                            sing.setTrackName(title);
+                                            sing.setMusicFileExtract(buffer);
+                                            chunks.add(sing);
+                                            chunksCounter++;
+                                            buffer = new byte[chunkSize];
+
+                                        }
                                         String title = fileEntry.getName();
                                         int index = title.indexOf(".mp3");
                                         title = title.substring(0, index);
-                                        sing.setTrackName(title);
-                                        sing.setMusicFileExtract(buffer);
-                                        chunks.add(sing);
-                                        chunksCounter++;
-                                        buffer = new byte[chunkSize];
 
-                                    }
-                                    String title = fileEntry.getName();
-                                    int index = title.indexOf(".mp3");
-                                    title = title.substring(0, index);
-
-                                    if(listOfSongs.isEmpty()){
-                                        ArtistName a = new ArtistName(artist);
-                                        HashMap<String, Queue<MusicFile>> songs = new HashMap<>();
-                                        songs.put(title,chunks);
-                                        listOfSongs.put(a,songs);
-                                    }
-                                    else{
-                                        boolean isIn = false;
-                                        for(ArtistName art : listOfSongs.keySet()){
-                                            if(art.getArtistName().equalsIgnoreCase(artist)){
-                                                listOfSongs.get(art).put(title,chunks);
-                                                isIn = true;
-                                            }
-                                        }
-                                        if(!isIn){
+                                        if (listOfSongs.isEmpty()) {
                                             ArtistName a = new ArtistName(artist);
                                             HashMap<String, Queue<MusicFile>> songs = new HashMap<>();
-                                            songs.put(title,chunks);
-                                            listOfSongs.put(a,songs);
+                                            songs.put(title, chunks);
+                                            listOfSongs.put(a, songs);
+                                        } else {
+                                            boolean isIn = false;
+                                            for (ArtistName art : listOfSongs.keySet()) {
+                                                if (art.getArtistName().equalsIgnoreCase(artist)) {
+                                                    listOfSongs.get(art).put(title, chunks);
+                                                    isIn = true;
+                                                }
+                                            }
+                                            if (!isIn) {
+                                                ArtistName a = new ArtistName(artist);
+                                                HashMap<String, Queue<MusicFile>> songs = new HashMap<>();
+                                                songs.put(title, chunks);
+                                                listOfSongs.put(a, songs);
+                                            }
                                         }
-                                    }
-                                    try {
-                                        input.close();
-                                    } catch (Exception e) {
-                                        e.printStackTrace();
+                                        try {
+                                            input.close();
+                                        } catch (Exception e) {
+                                            e.printStackTrace();
+                                        }
                                     }
                                 }
                             } catch (Exception e) {

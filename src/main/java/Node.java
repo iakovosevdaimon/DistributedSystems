@@ -6,79 +6,64 @@ import java.net.UnknownHostException;
 import java.util.*;
 
 public class Node{
-    //maybe static ?
-    private List<Broker> brokers ;
+    private List<BrokerInfo> brokers;
     private String name, ip;
     private int port;
     private Socket requestSocket;
     private ObjectOutputStream out;
     private ObjectInputStream in;
-    //private Scanner scn;
 
     public Node(){
-        //this.brokers = new ArrayList<>();
-        //this.scn = new Scanner(System.in);
+        this.brokers = new ArrayList<>();
     }
 
     public Node(String name, int port){
         this.name = name;
         this.port = port;
         this.brokers = new ArrayList<>();
-        //this.scn = new Scanner(System.in);
     }
 
-    public Node(String name, String ip, int port){
+    public Node(String name, String ip, int port) {
         this.name = name;
         this.ip = ip;
         this.port = port;
-        //this.brokers = new ArrayList<>();
-        //this.scn = new Scanner(System.in);
-    }
-
-    /*
-    public Node(String ip, int port){
-        this.ip = ip;
-        this.port = port;
         this.brokers = new ArrayList<>();
-        //this.scn = new Scanner(System.in);
-    }*/
-
-    /*
-    OR initialise the first connection of pub and sub with broker
-    and after that establish connection through connect()
-
-    //I think the best is in init method to initialize broker when it is waked up
-    public void init(int port){
-        System.out.println("It's UP waiting for new adventures");
-
-        //System.out.println((this.getClass()).toString());
-        //System.out.println(this.getName());
-
     }
 
-    public void connect(){
 
-    }*/
-
-    //initialise broker only and use connect for publisher and consumer
     public void init(int port){
         try {
             InetAddress ia = InetAddress.getLocalHost();
+            System.out.println(ia);
             this.setIp(ia.getHostAddress());
         } catch (Exception e) {
             e.printStackTrace();
         }
         //read json file with information of brokers
         List<String[]> list = Utility.readBrokers();
-        List<Broker> b = new ArrayList<>();
-        for (String[] l : list) {
-            Broker br = new Broker(l[0], l[1], Integer.parseInt(l[2]));
+        /*List<Broker> b = new ArrayList<>();
+        for(String[] l :list){
+            Broker br = new Broker(l[0],l[1],Integer.parseInt(l[2]));
             b.add(br);
         }
-        this.setBrokers(b);
-        //updateNodes();
+        this.setBrokers(b);*/
+        List<BrokerInfo> broks = new ArrayList<>();
+        for(String[] l :list){
+            List<String> brokerInfo = new ArrayList<>();
+            List<ArtistName> artists = new ArrayList<>();
+            for(int i=0; i<l.length;i++){
+                brokerInfo.add(l[i]);
+            }
+            BrokerInfo broker = new BrokerInfo(brokerInfo,artists);
+            broks.add(broker);
+        }
+        this.setBrokers(broks);
 
+
+        //updateNodes();
     }
+
+
 
     public void connect(String ip, int port){
         try
@@ -120,52 +105,14 @@ public class Node{
         }
     }
 
-    //TODO INFORM THE BROKER ABOUT OTHER BROKERS
-    //check again the logic
-    public void updateNodes(){
-        //TODO maybe thread to send simultaneously
-        for(Broker b: this.getBrokers()){
-            System.out.println(b.getName());
-            System.out.println(this.getName());
-            if((b.getPort()!=this.getPort() || ! b.getIp().equalsIgnoreCase(this.getIp())) && !b.getName().equalsIgnoreCase(this.getName())){
-                System.out.println(b.getName());
-                System.out.println(this.getName());
-                connect(b.getIp(),b.getPort());
-                try {
-                    //this.out.writeObject(b.getBrokers());
-                    System.out.println(this.getName());
-                    /*
-                    FileOutputStream f = new FileOutputStream(new File("this.txt"));
-                    ObjectOutputStream o = new ObjectOutputStream(f);
-                    Broker br = (Broker) this;
-                    o.writeObject(br);
-                    o.flush();
-                    o.close();*/
-                    this.out.writeObject(this);
-                    this.out.flush();
-                    //check this out
-                    this.setBrokers((List<Broker>) this.in.readObject());
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-                finally {
-                    disconnect();
-                }
-            }
-            //if i don't use it in the init of broker maybe I change it
-            else {
-                break;
-            }
-        }
-    }
 
 
 
-    public List<Broker> getBrokers(){
+    public List<BrokerInfo> getBrokers(){
         return this.brokers;
     }
 
-    public void setBrokers(List<Broker> brokers){
+    public void setBrokers(List<BrokerInfo> brokers){
         this.brokers = brokers;
     }
 

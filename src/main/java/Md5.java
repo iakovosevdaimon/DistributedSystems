@@ -99,16 +99,4 @@ public class Md5 {
         return hash;
     }
 
-    public static void main(String args[]){
-        String h1 = "192.168.1.15+550";
-        System.out.println(h1);
-        String ha1 = calculateHash(h1);
-        System.out.println(ha1);
-        String h2 = "Cavin Louis";
-        System.out.println(h2);
-        String ha2 = calculateHash(h2);
-        System.out.println(new BigInteger(ha2,16));
-        System.out.println(ha2);
-        System.out.println(compareHashes(ha1,ha2));
-    }
 }

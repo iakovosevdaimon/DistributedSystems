@@ -23,6 +23,7 @@ public class Broker extends Node implements Serializable {
     private boolean isAlive=false;
 
 
+
     public Broker(){
         super();
     }
@@ -39,9 +40,9 @@ public class Broker extends Node implements Serializable {
         this.isAlive = true;
         this.hashCodeOfBroker = Md5.takeHash(this.getIp()+Integer.toString(port));
         super.init(port);
-        this.update();
+        this.update(1);
         //maybe call it later
-        super.updateNodes();
+        updateNodes();
         connect(port);
     }
 
@@ -71,8 +72,8 @@ public class Broker extends Node implements Serializable {
                         {
 
                             calculateKeys(s,in,out);
-                            this.update();
-                            super.updateNodes();
+                            this.update(2);
+                            updateNodes();
                             this.informPublishers(s,in,out);
                         });
                         job_publisher.start();
@@ -149,70 +150,76 @@ public class Broker extends Node implements Serializable {
             }
             String reg =(String) input.readObject();
             //TODO view again register AND else-> what to do ?
-            if(reg.equalsIgnoreCase("Register")){
+            if(reg.equalsIgnoreCase("Register")) {
                 String con = (String) input.readObject();
                 synchronized (this.getRegisteredConsumers()) {
                     this.getRegisteredConsumers().put(con, s);
                 }
-            }
-            //TODO
-            else{}
-            ArtistName a = (ArtistName) input.readObject();
-            String song = (String) input.readObject();
-            String[] pub = null;
-            for(ArtistName art : this.getRelatedArtistsOfPubs().keySet()){
-                if(art.getArtistName().equalsIgnoreCase(a.getArtistName())){
-                    pub= this.getRelatedArtistsOfPubs().get(art);
-                    break;
+                ArtistName a = (ArtistName) input.readObject();
+                String song = (String) input.readObject();
+                String[] pub = null;
+                for (ArtistName art : this.getRelatedArtistsOfPubs().keySet()) {
+                    if (art.getArtistName().equalsIgnoreCase(a.getArtistName())) {
+                        pub = this.getRelatedArtistsOfPubs().get(art);
+                        break;
+                    }
                 }
-            }
-            //TODO handle if song doesn't exist
-            if(pub!=null) {
-                System.out.println(1);
-                pubrequest = new Socket(pub[1], Integer.parseInt(pub[2]));
-                inpub = new ObjectInputStream(pubrequest.getInputStream());
-                outpub = new ObjectOutputStream(pubrequest.getOutputStream());
-                Value value;
-                do {
-                    value = pull(a, song, inpub, outpub);
-                    System.out.println(2);
-                    System.out.println(value);
+                //TODO handle if song doesn't exist
+                if (pub != null) {
+                    System.out.println(1);
+                    pubrequest = new Socket(pub[1], Integer.parseInt(pub[2]));
+                    inpub = new ObjectInputStream(pubrequest.getInputStream());
+                    outpub = new ObjectOutputStream(pubrequest.getOutputStream());
+                    Value value;
+                    do {
+                        value = pull(a, song, inpub, outpub);
+                        System.out.println(2);
+                        System.out.println(value);
+                        output.writeObject(value);
+                        output.flush();
+                        /*TODO
+                         * sleep may not be used if i use threads in save in consumer
+                         * where is more correct to use sleep of thread in publisher or broker?
+                         * I think is in broker because broker sends a new request calling pull
+                         * and publisher waits until broker sends artistaname and song so broker will call pull after 3000 ms
+                         * on the other hand if sleep thread in publisher broker will call pull, he will send artistname
+                         * and song and broker will wait until publisher sends new value
+                         * using sleep will be smoother to send values when there is communication of different machines
+                         * in a LAN instead of a local machine. Thus, it will be more easy to handle the problem of transfer
+                         * packages through network
+                         * Although, sleep may create a big delay in the transfer of chunks(especially locally).
+                         * My purpose is to balance the delay of network with the speed that a broker sends a request in publisher
+                         * When I use sleep it is not needed the use of threads in consumer in save method
+                         * But it is very possible that it won't be needed to use sleep and there is not any problem
+                         * with delays in transfer of packages through network
+                         */
+                        //sleep(3000);
+                        if (value != null) {
+                            if (value.getFailure()) {
+                                break;
+                            }
+                        }
+                    } while (value != null);
+                }
+                else {
+                    Value value = new Value();
+                    value.setFailure(true);
                     output.writeObject(value);
                     output.flush();
-                    /*TODO sleep may not be used if i use threads in save in consumer
-                     *where is more correct to use sleep of thread in publisher or broker?
-                     *I think is in broker because broker sends a new request calling pull and publisher waits until broker sends artistaname and song so broker will call pull after 3000 ms
-                     *on the other hand if sleep thread in publisher broker will call pull, he will send artistname and song and broker will wait until publisher sends new value
-                     *using sleep will be smoother to send values when there is communication of different machines in a LAN instead of a local machine. Thus, it will be more easy to handle the problem of transfering packages through network
-                     * Although, sleep may create a big delay in the transfer of chunks(especially locally). My purpose is to balance the delay of network with the speed that a broker sends a request in publisher
-                     * When I use sleep it is not needed the use of threads in consumer in save method
-                     * But it is very possible that it won't be needed to use sleep and there is not any problem with delays in transfer of packages through network
-                    */
-                    //sleep(3000);
-                    if (value != null) {
-                        if (value.getFailure()) {
-                            break;
-                        }
-                    }
-                } while (value != null);
-            }
-            else {
-                Value value = new Value();
-                value.setFailure(true);
-                output.writeObject(value);
+                    System.out.println("Unable to find capable publisher");
+                }
+
+                Info info = createInfoObject();
+                output.writeObject(info);
                 output.flush();
-                System.out.println("Unable to find capable publisher");
             }
-
-            Info info = createInfoObject();
-            output.writeObject(info);
-            output.flush();
-
         } catch (Exception e) {
             e.printStackTrace();
         }
         finally {
             try {
+                input.close();
+                output.close();
                 if(pubrequest!=null) {
                     System.out.println("Close connection with publisher");
                     pubrequest.close();
@@ -254,27 +261,39 @@ public class Broker extends Node implements Serializable {
     }
 
     private Info createInfoObject() {
-        List<String[]> brokerInfo = new ArrayList<>();
+        List<String[]> infos = new ArrayList<>();
         HashMap<ArtistName,String[]> brokersRelatedArtists = new HashMap<>();
         String[] st = new String[3];
-        for(Broker b : this.getBrokers()){
-            st[0] = b.getName();
-            st[1] = b.getIp();
-            st[2] = Integer.toString(b.getPort());
+        for(BrokerInfo b : this.getBrokers()){
+            st[0] = b.getBrokerInfo().get(0);
+            st[1] = b.getBrokerInfo().get(1);
+            st[2] = b.getBrokerInfo().get(2);
             for(ArtistName a: b.getRelatedArtists()){
                 //System.out.println(a.getArtistName());
                 brokersRelatedArtists.put(a,st);
             }
-            brokerInfo.add(st);
+            infos.add(st);
+            st = new String[3];
         }
-        return new Info(brokerInfo,brokersRelatedArtists);
+        return new Info(infos,brokersRelatedArtists);
     }
 
-    public void update(){
+    public void update(int flag){
         for (int i=0; i<this.getBrokers().size(); i++){
-            if(this.getBrokers().get(i).getName().equalsIgnoreCase(this.getName())&& this.getBrokers().get(i).getIp().equalsIgnoreCase(this.getIp()) && this.getBrokers().get(i).getPort() == this.getPort()){
+            if(this.getBrokers().get(i).getBrokerInfo().get(0).equalsIgnoreCase(this.getName())&& this.getBrokers().get(i).getBrokerInfo().get(1).equalsIgnoreCase(this.getIp()) && Integer.parseInt(this.getBrokers().get(i).getBrokerInfo().get(2)) == this.getPort()){
                 System.out.println(this.getHashCodeOfBroker());
-                this.getBrokers().set(i, this);
+                if (flag==1) {
+                    System.out.println("update");
+                    System.out.println(flag);
+                    this.getBrokers().get(i).getBrokerInfo().add(String.valueOf(this.isAlive));
+                    this.getBrokers().get(i).getBrokerInfo().add(this.hashCodeOfBroker.toString());
+                }
+                else{
+                    System.out.println("update");
+                    System.out.println(flag);
+                    BrokerInfo bi = new BrokerInfo(this.getBrokers().get(i).getBrokerInfo(),this.relatedArtists);
+                    this.getBrokers().set(i,bi);
+                }
                 break;
 
             }
@@ -286,18 +305,17 @@ public class Broker extends Node implements Serializable {
     private void communicationOfBrokers(Socket s,ObjectInputStream input, ObjectOutputStream output) {
         try {
             System.out.println("communication 0");
-            Broker nb = (Broker) input.readObject();
+            BrokerInfo nb = (BrokerInfo) input.readObject();
             System.out.println("communication 0.1");
             System.out.println(nb==null);
             synchronized (this.getBrokers()){
                 System.out.println(this.getBrokers().size());
-                for (int i=0; i<this.getBrokers().size(); i++){
+                for (int i=0; i < this.getBrokers().size(); i++){
                     System.out.println("communication loop");
-                    System.out.println(this.getBrokers().get(i).getName());
-                    System.out.println(nb.getName());
-                    if(this.getBrokers().get(i).getName().equalsIgnoreCase(nb.getName())&& this.getBrokers().get(i).getIp().equalsIgnoreCase(nb.getIp()) && this.getBrokers().get(i).getPort() == nb.getPort()){
+                    System.out.println(nb.getBrokerInfo().get(0));
+                    if(this.getBrokers().get(i).getBrokerInfo().get(0).equalsIgnoreCase(nb.getBrokerInfo().get(0))&& this.getBrokers().get(i).getBrokerInfo().get(1).equalsIgnoreCase(nb.getBrokerInfo().get(1)) && Integer.parseInt(this.getBrokers().get(i).getBrokerInfo().get(2)) == Integer.parseInt(nb.getBrokerInfo().get(2))){
                         System.out.println("communication 1");
-                        if(nb.getState()){
+                        if(Boolean.parseBoolean(nb.getBrokerInfo().get(3))){
                             System.out.println("communication 2");
                             this.getBrokers().set(i,nb);
                             break;
@@ -305,6 +323,7 @@ public class Broker extends Node implements Serializable {
                     }
                 }
             }
+            output.writeObject(this.getBrokers());
         } catch (Exception e) {
 
             e.printStackTrace();
@@ -312,7 +331,7 @@ public class Broker extends Node implements Serializable {
     }
 
 
-    public void calculateKeys(Socket s,ObjectInputStream input, ObjectOutputStream output){
+    private void calculateKeys(Socket s,ObjectInputStream input, ObjectOutputStream output){
         //String toHash = this.getIp()+ Integer.toString(this.getPort());
         //this.hashCodeOfBroker=Md5.takeHash(toHash);
         //eite kateutheian stelnetai ena tetoio object HashMap<ArtistName,String[]> artists
@@ -320,32 +339,54 @@ public class Broker extends Node implements Serializable {
         BigInteger max = BigInteger.ZERO;
         BigInteger previousMax = BigInteger.ZERO;
         BigInteger min = this.getHashCodeOfBroker();
+        BigInteger distance = BigInteger.ZERO;
+        BigInteger previousDistance = BigInteger.ZERO;
+        int count = 0;
         //find broker with maximum hash and broker with the previous hash of this broker's hash
-        for(Broker b : this.getBrokers()){
-            //System.out.println(b.getName());
-            //System.out.println(b.getHashCodeOfBroker());
-            //System.out.println(this.getHashCodeOfBroker());
-            if(b.getHashCodeOfBroker().compareTo(max)>=0){
-                //System.out.println(b.getHashCodeOfBroker());
-                max = b.getHashCodeOfBroker();
-            }
-            if((b.getHashCodeOfBroker().compareTo(previousMax)>=0) && (this.getHashCodeOfBroker().compareTo(previousMax)>0)){
-                previousMax = b.getHashCodeOfBroker();
-            }
-            //calculate minimum hash of brokers if we need it for modulo
-            if(b.getHashCodeOfBroker().compareTo(max)<0){
-                min = b.getHashCodeOfBroker();
+        for(BrokerInfo b : this.getBrokers()){
+            System.out.println(b.getBrokerInfo().get(0));
+            //System.out.println(b.getBrokerInfo().get(4));
+            System.out.println(this.getHashCodeOfBroker());
+            if(Boolean.parseBoolean(b.getBrokerInfo().get(3))) {
+                BigInteger hashOfBroker = new BigInteger(b.getBrokerInfo().get(4));
+                System.out.println(hashOfBroker);
+                if (hashOfBroker.compareTo(max) >= 0) {
+                    //System.out.println(b.getHashCodeOfBroker());
+                    max = hashOfBroker;
+                }
+                //find the previous hash number of this broker's hash number
+                if(this.getHashCodeOfBroker().compareTo(hashOfBroker)>0){
+                    if(count==0){
+                        distance = this.getHashCodeOfBroker().subtract(hashOfBroker);
+                        previousDistance = distance;
+                        previousMax =hashOfBroker;
+                        count++;
+                    }
+                    if(distance.compareTo(new BigInteger("0"))>0 && previousDistance.compareTo(distance)>0) {
+                        previousMax = hashOfBroker;
+                        previousDistance = distance;
+                        count++;
+                    }
+                }
+
+                //calculate minimum hash of brokers if we need it for modulo
+                if (hashOfBroker.compareTo(min) < 0) {
+                    min = hashOfBroker;
+                }
             }
         }
+        System.out.println(max);
+        System.out.println(previousMax);
+        System.out.println(min);
         try {
             String[] publisher = (String[]) input.readObject();
             List<ArtistName> listOfArtists = (List<ArtistName>) input.readObject();
             if(listOfArtists!=null && !listOfArtists.isEmpty()) {
-                //System.out.println(1);
+                System.out.println(1);
                 for (ArtistName a : listOfArtists) {
                     System.out.println(a.getArtistName());
                     if (a != null) {
-                        //System.out.println(2);
+                        System.out.println(2);
                         if (this.getBrokers().size() == 1) {
                             System.out.println(5);
                             synchronized (this.getRelatedArtists()) {
@@ -368,7 +409,9 @@ public class Broker extends Node implements Serializable {
                             System.out.println(hashArtist);
                             System.out.println(previousMax.compareTo(hashArtist));
                             System.out.println(this.hashCodeOfBroker.compareTo(hashArtist));
-                            if (previousMax.compareTo(hashArtist) <= 0 && this.hashCodeOfBroker.compareTo(hashArtist) >= 0) {
+                            System.out.println(previousMax);
+                            System.out.println(previousMax.compareTo(this.hashCodeOfBroker));
+                            if ((previousMax.compareTo(hashArtist) <= 0 ) && this.hashCodeOfBroker.compareTo(hashArtist) > 0) {
                                 System.out.println(4);
                                 synchronized (this.getRelatedArtists()) {
                                     this.getRelatedArtists().add(a);
@@ -383,6 +426,57 @@ public class Broker extends Node implements Serializable {
             }
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    //TODO INFORM THE BROKER ABOUT OTHER BROKERS
+    //check again the logic
+    public void updateNodes(){
+        //TODO maybe thread to send simultaneously
+        //TODO maybe do it with thread?
+
+        for(BrokerInfo b : this.getBrokers()){
+            System.out.println(b.getBrokerInfo().get(0));
+            System.out.println(this.getName());
+            if((Integer.parseInt(b.getBrokerInfo().get(2))!=this.getPort() || ! b.getBrokerInfo().get(1).equalsIgnoreCase(this.getIp())) && !b.getBrokerInfo().get(0).equalsIgnoreCase(this.getName())){
+
+                System.out.println(b.getBrokerInfo().get(0));
+                System.out.println(this.getName());
+                connect(b.getBrokerInfo().get(1), Integer.parseInt(b.getBrokerInfo().get(2)));
+                try {
+                    //this.out.writeObject(b.getBrokers());
+                    //System.out.println(this.getName());
+                    /*
+                    FileOutputStream f = new FileOutputStream(new File("this.txt"));
+                    ObjectOutputStream o = new ObjectOutputStream(f);
+                    Broker br = (Broker) this;
+                    o.writeObject(br);
+                    o.flush();
+                    o.close();*/
+                    List<String> brokerVariables = new ArrayList<>();
+                    brokerVariables.add(this.getName());
+                    brokerVariables.add(this.getIp());
+                    brokerVariables.add(Integer.toString(this.getPort()));
+                    brokerVariables.add(String.valueOf(this.getState()));
+                    brokerVariables.add(this.getHashCodeOfBroker().toString());
+                    BrokerInfo thisBroker = new BrokerInfo(brokerVariables,this.relatedArtists);
+                    this.getOutputStream().writeObject(thisBroker);
+                    this.getOutputStream().flush();
+                    //check this out
+                    this.setBrokers((List<BrokerInfo>) this.getInputStream().readObject());
+
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    super.disconnect();
+                }
+
+            }
+            else {
+                System.out.println("FIND HIMSELF");
+                break;
+            }
         }
     }
 

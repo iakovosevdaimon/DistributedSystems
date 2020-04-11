@@ -37,7 +37,7 @@ public class Consumer extends Node{
         connect(this.getIp(), this.getPort());
     }
 
-    //TODO TAKE AN NAME OF SONG
+
     @Override
     public void connect(String ip, int port) {
         //List<Broker> listOfBrokers = new ArrayList<>();
@@ -79,11 +79,11 @@ public class Consumer extends Node{
                     artist = scn.nextLine().trim();
                 }
                 artistName = new ArtistName(artist);
-                //System.out.println(this.getInfo().getListOfBrokersInfo().keySet().isEmpty());
+                System.out.println(this.getInfo().getListOfBrokersInfo().keySet().isEmpty());
                 for (ArtistName a : this.getInfo().getListOfBrokersInfo().keySet()) {
-                    //TODO INFORM USER FOR AVAILABLE ARTISTS IF HE GIVES WRONG ARTIST NAMEK
+                    //TODO INFORM USER FOR AVAILABLE ARTISTS IF HE GIVES WRONG ARTIST NAME
                     System.out.println(a.getArtistName());
-                    //System.out.println(this.getInfo().getListOfBrokersInfo().get(a)[0]);
+                    System.out.println(this.getInfo().getListOfBrokersInfo().get(a)[0]);
                     System.out.println(artistName.getArtistName());
                     if (a.getArtistName().equalsIgnoreCase(artistName.getArtistName())) {
                         isOK = true;
@@ -137,11 +137,12 @@ public class Consumer extends Node{
                 }
             }
             else{
-                //TODO I DON'T KNOW IF DISCONNECT WILL WORK->CHECK IT
-                super.disconnect();
-                this.setPort(Integer.parseInt(broker[2]));
-                this.setIp(broker[1]);
                 try {
+                    this.out.writeObject("You are not my comrade");
+                    this.out.flush();
+                    super.disconnect();
+                    this.setPort(Integer.parseInt(broker[2]));
+                    this.setIp(broker[1]);
                     super.connect(this.getIp(),this.getPort());
                     this.requestSocket=this.getSocket();
                     this.out = this.getOutputStream();
@@ -179,7 +180,7 @@ public class Consumer extends Node{
         return this.connectedBroker;
     }
 
-    //TODO ean dn uparxei to sugkekrimeno song o publisher gurnaei katallhlo mhnuma ston broker kai autos me thn seira tou ston consumer
+
     private void transaction(ArtistName artistName) {
         //String line = "";
         //boolean isExit = false;
@@ -278,51 +279,6 @@ public class Consumer extends Node{
         }
     }
 
-    //TODO save method -> write chunk with metadata
-    private void saveList(List<Value> list) {
-        File currentDirectory = new File(new File(".").getAbsolutePath());
-        String currentDirectoryPath = currentDirectory.getAbsolutePath()
-                .substring(0,currentDirectory.getAbsolutePath().length() - 1);
-        String basePath = currentDirectoryPath+"Saved Songs\\";
-        OutputStream outstream = null;
-        for(Value v : list) {
-            if (v != null) {
-                MusicFile m = v.getMusicFile();
-                String fileName = m.getArtistName() + "-" + m.getTrackName() + Integer.toString(m.getId()) + ".mp3";
-                String path = basePath + fileName;
-                try {
-                    File of = new File(basePath, fileName);
-                    outstream = new FileOutputStream(of);
-                    outstream.write(m.getMusicFileExtract());
-                    Mp3File chunk = new Mp3File(path);
-                    ID3v2 id3v2Tag;
-                    if (chunk.hasId3v2Tag()) {
-                        id3v2Tag = chunk.getId3v2Tag();
-                    } else {
-                        id3v2Tag = new ID3v24Tag();
-                        chunk.setId3v2Tag(id3v2Tag);
-                    }
-                    id3v2Tag.setTrack(m.getTrackName());
-                    id3v2Tag.setArtist(m.getArtistName());
-                    id3v2Tag.setAlbum(m.getAlbumInfo());
-                    id3v2Tag.setGenreDescription(m.getGenre());
-                    //TODO check it again
-                    //chunk.save(path);
-
-                } catch (Exception e) {
-                    e.printStackTrace();
-                } finally {
-                    try {
-                        if(outstream!=null)
-                            outstream.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-
-        }
-    }
 
     private void save(Value v) {
         File currentDirectory = new File(new File(".").getAbsolutePath());
@@ -335,6 +291,8 @@ public class Consumer extends Node{
             MusicFile m = v.getMusicFile();
             String fileName = m.getArtistName() + "-" + m.getTrackName() +"_"+Integer.toString(m.getId()) + ".mp3";
             String path = basePath + fileName;
+            //String filename2 = m.getArtistName() + "-" + m.getTrackName() +"_"+Integer.toString(m.getId()) +"_modified.mp3";
+            //String path2 = basePath + filename2;
             try {
                 File of = new File(basePath, fileName);
                 outstream = new FileOutputStream(of);
@@ -352,7 +310,7 @@ public class Consumer extends Node{
                 id3v2Tag.setAlbum(m.getAlbumInfo());
                 id3v2Tag.setGenreDescription(m.getGenre());
                 //TODO check it again
-                //chunk.save(path);
+                //chunk.save(path2);
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -455,7 +413,7 @@ public class Consumer extends Node{
     }
 
 
-    public void playData(ArtistName artistName, Value value){}
+    //public void playData(ArtistName artistName, Value value){}
 
     //MAIN
     public static void main(String args[]){
