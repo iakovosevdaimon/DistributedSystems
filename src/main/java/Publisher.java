@@ -14,7 +14,7 @@ public class Publisher extends Node{
     //eite private HashMap<String, HashMap<String, Queue<MusicFile>>> listOfSongs;
     //key artistname->values hashmap with key song title and value a queue of chunks
     private HashMap<ArtistName, HashMap<String, Queue<MusicFile>>> listOfSongs;
-    private HashMap<String[], Socket> registeredBrokers;
+    private HashMap<Socket, String[]> registeredBrokers;
     private HashMap<String[], List<ArtistName>> listOfBrokersRelatedArtists;
     private List<String[]> listOfBrokers;
     private String keys;
@@ -130,6 +130,10 @@ public class Publisher extends Node{
 
     private void handleRequest(Socket s, ObjectOutputStream output, ObjectInputStream input) {
         try {
+            String[] infos = (String[]) input.readObject();
+            synchronized (this.getRegisteredBrokers()){
+                this.getRegisteredBrokers().put(s,infos);
+            }
             boolean songExist = false;
             ArtistName artist = (ArtistName) input.readObject();
             String song = (String) input.readObject();
@@ -175,6 +179,10 @@ public class Publisher extends Node{
             //notifyFailure
             else{
                 notifyFailure(output);
+
+            }
+            synchronized (this.getRegisteredBrokers()){
+                this.getRegisteredBrokers().remove(s);
             }
 
         } catch (Exception e) {
@@ -222,11 +230,11 @@ public class Publisher extends Node{
         return this.listOfSongs;
     }
 
-    public void setRegisteredBrokers(HashMap<String[], Socket> registeredBrokers){
+    public void setRegisteredBrokers(HashMap<Socket, String[]> registeredBrokers){
         this.registeredBrokers = registeredBrokers;
     }
 
-    public HashMap<String[], Socket> getRegisteredBrokers() {
+    public HashMap<Socket, String[]> getRegisteredBrokers() {
         return this.registeredBrokers;
     }
 

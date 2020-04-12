@@ -176,6 +176,12 @@ public class Broker extends Node implements Serializable {
                     synchronized (this.getRegisteredPublishers()){
                         this.getRegisteredPublishers().put(pubrequest,pub);
                     }
+                    String[] infos = new String[3];
+                    infos[0] = this.getName();
+                    infos[1] = this.getIp();
+                    infos[2] = Integer.toString(this.getPort());
+                    output.writeObject(infos);
+                    output.flush();
                     Value value;
                     do {
                         value = pull(a, song, inpub, outpub);
