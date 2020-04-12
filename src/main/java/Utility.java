@@ -64,8 +64,14 @@ public class Utility {
                                             String albumInfo = id3v2Tag.getAlbum();
                                             sing.setId(chunksCounter);
                                             sing.setAlbumInfo(albumInfo);
-                                            String genre = id3v2Tag.getGenre() + " (" + id3v2Tag.getGenreDescription() + ")";
-                                            sing.setGenre(genre);
+                                            if(id3v2Tag.getGenreDescription()==null){
+                                                String genre = "unknown";
+                                                sing.setGenre(genre);
+                                            }
+                                            else {
+                                                String genre = id3v2Tag.getGenreDescription();
+                                                sing.setGenre(genre);
+                                            }
                                             String title = fileEntry.getName();
                                             int index = title.indexOf(".mp3");
                                             title = title.substring(0, index);
@@ -74,8 +80,8 @@ public class Utility {
                                             chunks.add(sing);
                                             chunksCounter++;
                                             buffer = new byte[chunkSize];
-
                                         }
+                                        buffer = null;
                                         String title = fileEntry.getName();
                                         int index = title.indexOf(".mp3");
                                         title = title.substring(0, index);
@@ -237,4 +243,9 @@ public class Utility {
             return list;
         }
     }
+
+
+
+    //create two new methods one to read only artists and song titles in the start of publisher
+    //and another one that read the specific song and split it into chunks when it is requested by consumer-broker
 }

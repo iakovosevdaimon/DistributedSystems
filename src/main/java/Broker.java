@@ -13,8 +13,8 @@ import static java.lang.Thread.sleep;
 //TODO use registeredCOnsumers, Publishers
 public class Broker extends Node implements Serializable {
     private static final long serialVersionUID = 2872573403920682364L;
-    private HashMap<String, Socket> registeredConsumers; //may synchronization,may change position of key-vale
-    private HashMap<String[], Socket> registeredPublishers;//may synchronization,may change position of key-vale
+    private HashMap<Socket, String> registeredConsumers; //may synchronization,may change position of key-vale
+    private HashMap< Socket,String[]> registeredPublishers;//may synchronization,may change position of key-vale
     private ServerSocket serverSocket;
     private BigInteger hashCodeOfBroker;
     private HashMap<ArtistName, String[]> relatedArtistsOfPubs;//may synchronization ArtistName->value: Publisher name,port,ip
@@ -58,53 +58,47 @@ public class Broker extends Node implements Serializable {
         try {
             serverSocket = new ServerSocket(port);
             while (true) {
-                try {
-                    Socket s = serverSocket.accept();
-                    ObjectInputStream in = new ObjectInputStream(s.getInputStream());
-                    ObjectOutputStream out = new ObjectOutputStream(s.getOutputStream());
-                    //System.out.println("Problem");
-                    String obj = (String) in.readObject();
-                    System.out.println(obj);
-                    //may not use publisher handler here but a simple thread created with lambdas
-                    if(obj.equalsIgnoreCase("Publisher")){
-                        Thread job_publisher = new Thread(() ->
 
-                        {
+                Socket s = serverSocket.accept();
+                ObjectInputStream in = new ObjectInputStream(s.getInputStream());
+                ObjectOutputStream out = new ObjectOutputStream(s.getOutputStream());
+                //System.out.println("Problem");
+                String obj = (String) in.readObject();
+                System.out.println(obj);
+                //may not use publisher handler here but a simple thread created with lambdas
+                if(obj.equalsIgnoreCase("Publisher")){
+                    Thread job_publisher = new Thread(() ->
+                    {
 
-                            calculateKeys(s,in,out);
-                            this.update(2);
-                            updateNodes();
-                            this.informPublishers(s,in,out);
-                        });
-                        job_publisher.start();
-                    }
-                    //may use here both publisher handler and consumer handler or maybe create local threads and here
-                    //use thread inside thread
-                    else if(obj.equalsIgnoreCase("Consumer")){
-                        Thread job_consumer = new Thread(() ->
-                        {
-                           handleRequest(s,in,out);
-                        });
-                        job_consumer.start();
+                        calculateKeys(s,in,out);
+                        this.update(2);
+                        updateNodes();
+                        this.informPublishers(s,in,out);
+                    });
+                    job_publisher.start();
+                }
+                //may use here both publisher handler and consumer handler or maybe create local threads and here
+                //use thread inside thread
+                else if(obj.equalsIgnoreCase("Consumer")){
+                    Thread job_consumer = new Thread(() ->
+                    {
+                        handleRequest(s,in,out);
+                    });
+                    job_consumer.start();
 
-                    }
+                }
                     /*pws tha xeirizetai to request apo tous brokers enas broker?
                      *logika apla tha enhmerwnei thn lista me tous brokers pou exei
                      *kai tha krataei anoixto to connection gia ama pesei na stalei mhnuma
                      *eite gia na kserei oti enas broker efuge
                      */
-                    else if(obj.equalsIgnoreCase("Broker")){
-                        System.out.println("IN");
-                        Thread job_broker = new Thread(() ->
-                        {
-                           communicationOfBrokers(s,in,out);
-                        });
-                        job_broker.start();
-                    }
-
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    //break;
+                else if(obj.equalsIgnoreCase("Broker")){
+                    System.out.println("IN");
+                    Thread job_broker = new Thread(() ->
+                    {
+                        communicationOfBrokers(s,in,out);
+                    });
+                    job_broker.start();
                 }
             }
 
@@ -135,6 +129,15 @@ public class Broker extends Node implements Serializable {
         } catch (Exception e) {
             e.printStackTrace();
         }
+        finally {
+            try {
+                s.close();
+                input.close();
+                output.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     private void handleRequest(Socket s,ObjectInputStream input, ObjectOutputStream output){
@@ -153,7 +156,7 @@ public class Broker extends Node implements Serializable {
             if(reg.equalsIgnoreCase("Register")) {
                 String con = (String) input.readObject();
                 synchronized (this.getRegisteredConsumers()) {
-                    this.getRegisteredConsumers().put(con, s);
+                    this.getRegisteredConsumers().put(s, con);
                 }
                 ArtistName a = (ArtistName) input.readObject();
                 String song = (String) input.readObject();
@@ -170,6 +173,9 @@ public class Broker extends Node implements Serializable {
                     pubrequest = new Socket(pub[1], Integer.parseInt(pub[2]));
                     inpub = new ObjectInputStream(pubrequest.getInputStream());
                     outpub = new ObjectOutputStream(pubrequest.getOutputStream());
+                    synchronized (this.getRegisteredPublishers()){
+                        this.getRegisteredPublishers().put(pubrequest,pub);
+                    }
                     Value value;
                     do {
                         value = pull(a, song, inpub, outpub);
@@ -200,6 +206,9 @@ public class Broker extends Node implements Serializable {
                             }
                         }
                     } while (value != null);
+                    synchronized (this.getRegisteredPublishers()){
+                        this.getRegisteredPublishers().remove(pubrequest);
+                    }
                 }
                 else {
                     Value value = new Value();
@@ -212,9 +221,23 @@ public class Broker extends Node implements Serializable {
                 Info info = createInfoObject();
                 output.writeObject(info);
                 output.flush();
+                String trash = (String) input.readObject();
+                synchronized (this.getRegisteredConsumers()) {
+                    this.getRegisteredConsumers().remove(s);
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
+            if(this.getRegisteredPublishers().containsKey(pubrequest)){
+                synchronized (this.getRegisteredPublishers()){
+                    this.getRegisteredPublishers().remove(pubrequest);
+                }
+            }
+            if(this.getRegisteredConsumers().containsKey(s)){
+                synchronized (this.getRegisteredConsumers()){
+                    this.getRegisteredConsumers().remove(s);
+                }
+            }
         }
         finally {
             try {
@@ -301,6 +324,21 @@ public class Broker extends Node implements Serializable {
         }
     }
 
+    private void updateListOfBrokers(BrokerInfo nb){
+        for (int i=0; i < this.getBrokers().size(); i++){
+            System.out.println("communication loop");
+            System.out.println(nb.getBrokerInfo().get(0));
+            if(this.getBrokers().get(i).getBrokerInfo().get(0).equalsIgnoreCase(nb.getBrokerInfo().get(0))&& this.getBrokers().get(i).getBrokerInfo().get(1).equalsIgnoreCase(nb.getBrokerInfo().get(1)) && Integer.parseInt(this.getBrokers().get(i).getBrokerInfo().get(2)) == Integer.parseInt(nb.getBrokerInfo().get(2))){
+                System.out.println("communication 1");
+                if(Boolean.parseBoolean(nb.getBrokerInfo().get(3))){
+                    System.out.println("communication 2");
+                    this.getBrokers().set(i,nb);
+                    break;
+                }
+            }
+        }
+    }
+
 
     //method for inner-communication of brokers
     private void communicationOfBrokers(Socket s,ObjectInputStream input, ObjectOutputStream output) {
@@ -311,23 +349,22 @@ public class Broker extends Node implements Serializable {
             System.out.println(nb==null);
             synchronized (this.getBrokers()){
                 System.out.println(this.getBrokers().size());
-                for (int i=0; i < this.getBrokers().size(); i++){
-                    System.out.println("communication loop");
-                    System.out.println(nb.getBrokerInfo().get(0));
-                    if(this.getBrokers().get(i).getBrokerInfo().get(0).equalsIgnoreCase(nb.getBrokerInfo().get(0))&& this.getBrokers().get(i).getBrokerInfo().get(1).equalsIgnoreCase(nb.getBrokerInfo().get(1)) && Integer.parseInt(this.getBrokers().get(i).getBrokerInfo().get(2)) == Integer.parseInt(nb.getBrokerInfo().get(2))){
-                        System.out.println("communication 1");
-                        if(Boolean.parseBoolean(nb.getBrokerInfo().get(3))){
-                            System.out.println("communication 2");
-                            this.getBrokers().set(i,nb);
-                            break;
-                        }
-                    }
-                }
+                updateListOfBrokers(nb);
             }
-            output.writeObject(this.getBrokers());
+            BrokerInfo thisBroker = this.generateBrokerInfoObject();
+            output.writeObject(thisBroker);
         } catch (Exception e) {
 
             e.printStackTrace();
+        }
+        finally {
+            try {
+                s.close();
+                input.close();
+                output.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -363,10 +400,13 @@ public class Broker extends Node implements Serializable {
                         previousMax =hashOfBroker;
                         count++;
                     }
-                    if(distance.compareTo(new BigInteger("0"))>0 && previousDistance.compareTo(distance)>0) {
-                        previousMax = hashOfBroker;
-                        previousDistance = distance;
-                        count++;
+                    else {
+                        distance = this.getHashCodeOfBroker().subtract(hashOfBroker);
+                        if (distance.compareTo(new BigInteger("0")) > 0 && previousDistance.compareTo(distance) > 0) {
+                            previousMax = hashOfBroker;
+                            previousDistance = distance;
+                            count++;
+                        }
                     }
                 }
 
@@ -443,36 +483,37 @@ public class Broker extends Node implements Serializable {
 
                 System.out.println(b.getBrokerInfo().get(0));
                 System.out.println(this.getName());
-                connect(b.getBrokerInfo().get(1), Integer.parseInt(b.getBrokerInfo().get(2)));
-                try {
-                    //this.out.writeObject(b.getBrokers());
-                    //System.out.println(this.getName());
-                    /*
-                    FileOutputStream f = new FileOutputStream(new File("this.txt"));
-                    ObjectOutputStream o = new ObjectOutputStream(f);
-                    Broker br = (Broker) this;
-                    o.writeObject(br);
-                    o.flush();
-                    o.close();*/
-                    List<String> brokerVariables = new ArrayList<>();
-                    brokerVariables.add(this.getName());
-                    brokerVariables.add(this.getIp());
-                    brokerVariables.add(Integer.toString(this.getPort()));
-                    brokerVariables.add(String.valueOf(this.getState()));
-                    brokerVariables.add(this.getHashCodeOfBroker().toString());
-                    BrokerInfo thisBroker = new BrokerInfo(brokerVariables,this.relatedArtists);
-                    this.getOutputStream().writeObject(thisBroker);
-                    this.getOutputStream().flush();
-                    //check this out
-                    this.setBrokers((List<BrokerInfo>) this.getInputStream().readObject());
+                Thread job = new Thread(() ->
+                {
 
-
-                } catch (Exception e) {
+                    Socket s = null;
+                    ObjectOutputStream out = null;
+                    ObjectInputStream in = null;
+                    try {
+                        s = new Socket(b.getBrokerInfo().get(1), Integer.parseInt(b.getBrokerInfo().get(2)));
+                        out = new ObjectOutputStream(s.getOutputStream());
+                        in = new ObjectInputStream(s.getInputStream());
+                        BrokerInfo thisBroker = this.generateBrokerInfoObject();
+                        out.writeObject(this.getClass().getSimpleName());
+                        out.flush();
+                        out.writeObject(thisBroker);
+                        out.flush();
+                        BrokerInfo inform = (BrokerInfo) in.readObject();
+                        synchronized (this.getBrokers()){
+                            updateListOfBrokers(inform);
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    } finally {
+                        super.disconnect(s,in,out);
+                    }
+                });
+                job.start();
+                /*try {
+                    job.join();
+                } catch (InterruptedException e) {
                     e.printStackTrace();
-                } finally {
-                    super.disconnect();
-                }
-
+                }*/
             }
             else {
                 System.out.println("FIND HIMSELF");
@@ -525,24 +566,39 @@ public class Broker extends Node implements Serializable {
         return  this.isAlive;
     }
 
-    public void setRegisterConsumers(HashMap<String, Socket> registerConsumers){
+    public void setRegisterConsumers(HashMap<Socket,String> registerConsumers){
         this.registeredConsumers = registerConsumers;
     }
 
-    public HashMap<String, Socket> getRegisteredConsumers(){
+    public HashMap<Socket,String> getRegisteredConsumers(){
         return this.registeredConsumers;
     }
 
-    public HashMap<String[], Socket> getRegisteredPublishers(){
+    public HashMap<Socket,String[]> getRegisteredPublishers(){
         return this.registeredPublishers;
     }
 
-    public void setRegisterPublishers(HashMap<String, Socket> registerPublishers){
-        this.registeredConsumers = registerPublishers;
+    public void setRegisterPublishers(HashMap<Socket,String[]> registerPublishers){
+        this.registeredPublishers = registerPublishers;
     }
 
-    public static void main(String args[]){
-        int port = Integer.parseInt(args[1]);
-        new Broker(args[0],port);
+    public BrokerInfo generateBrokerInfoObject(){
+        List<String> brokerVariables = new ArrayList<>();
+        brokerVariables.add(this.getName());
+        brokerVariables.add(this.getIp());
+        brokerVariables.add(Integer.toString(this.getPort()));
+        brokerVariables.add(String.valueOf(this.getState()));
+        brokerVariables.add(this.getHashCodeOfBroker().toString());
+        BrokerInfo thisBroker = new BrokerInfo(brokerVariables,this.relatedArtists);
+        return  thisBroker;
+    }
+
+
+
+
+
+    public static void main(String[] arg){
+        int port = Integer.parseInt(arg[1]);
+        new Broker(arg[0],port);
     }
 }

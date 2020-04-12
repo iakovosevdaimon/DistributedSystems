@@ -105,6 +105,23 @@ public class Node{
         }
     }
 
+    public void disconnect(Socket s, ObjectInputStream in, ObjectOutputStream out){
+        try{
+            if(s!=null) {
+                System.out.println("Closing this connection : " + s);
+                s.close();
+            }
+            if(in!=null) {
+                in.close();
+            }
+            if(out!=null) {
+                out.close();
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+
 
 
 
@@ -159,6 +176,5 @@ public class Node{
     public ObjectInputStream getInputStream(){
         return this.in;
     }
-
 
 }

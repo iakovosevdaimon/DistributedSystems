@@ -58,23 +58,41 @@ public class Publisher extends Node{
         publisher[0] = this.getName();
         publisher[1] = this.getIp();
         publisher[2] = Integer.toString(this.getPort());
-        //TODO maybe do it with thread?
+        /* TODO MAYBE CHANGE IT AND DO IT FIRSTLY TO TAKE LIST OF BROKERS IN ORDER TO KNOW
+         *  WHO BROKERS ARE CONNECTED TO SYSTEM (checking variable isAlive of Broker)
+         *  IN THIS CASE IT IS NOT NEEDED TO READ json of brokers, publisher will only
+         *  want to know  the ip and port of one random broker
+         */
         for(String[] broker : this.getListOfBrokers()) {
-            super.connect(broker[1], Integer.parseInt(broker[2]));
-            try {
-                this.getOutputStream().writeObject(publisher);
-                this.getOutputStream().flush();
-                this.getOutputStream().writeObject(artistNames);
-                this.getOutputStream().flush();
-                String[] b = (String[])this.getInputStream().readObject();
-                List<ArtistName> rA = (List<ArtistName>) this.getInputStream().readObject();
-                this.getListOfBrokersRelatedArtists().put(b,rA);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            finally {
-                super.disconnect();
-            }
+            Thread t = new Thread(() ->
+            {
+                //super.connect(broker[1], Integer.parseInt(broker[2]));
+                Socket s = null;
+                ObjectOutputStream out = null;
+                ObjectInputStream in = null;
+                try {
+                    s = new Socket(broker[1],Integer.parseInt(broker[2]));
+                    out = new ObjectOutputStream(s.getOutputStream());
+                    in = new ObjectInputStream(s.getInputStream());
+                    out.writeObject(this.getClass().getSimpleName());
+                    out.flush();
+                    out.writeObject(publisher);
+                    out.flush();
+                    out.writeObject(artistNames);
+                    out.flush();
+                    String[] b = (String[]) in.readObject();
+                    List<ArtistName> rA = (List<ArtistName>) in.readObject();
+                    synchronized (this.getListOfBrokersRelatedArtists()) {
+                        this.getListOfBrokersRelatedArtists().put(b, rA);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                finally {
+                    super.disconnect(s,in,out);
+                }
+            });
+            t.start();
         }
     }
 
@@ -162,7 +180,15 @@ public class Publisher extends Node{
         } catch (Exception e) {
             e.printStackTrace();
         }
-
+        finally {
+            try {
+                s.close();
+                input.close();
+                output.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 
 
@@ -228,14 +254,16 @@ public class Publisher extends Node{
 
     public void setKeys(String keys){this.keys = keys;}
 
+
+
     //MAIN
-    public static void main(String args[]){
+    public static void main(String[] arg){
         //may auto-generate name and it is not needed to be given by keyboard
         /*args[0]->name
           args[1]->IP of publisher
           args[2]->Port of publisher
           args[3]->publisher's keys that he is responsible for them
          */
-        new Publisher(args[0],args[1],Integer.parseInt(args[2]),args[3]);
+        new Publisher(arg[0],arg[1],Integer.parseInt(arg[2]),arg[3]);
     }
 }

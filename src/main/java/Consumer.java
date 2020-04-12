@@ -274,6 +274,11 @@ public class Consumer extends Node{
                 this.setIp(null);
                 findCorrespondingBroker();
             }
+            else{
+                this.info = (Info) this.in.readObject();
+                this.out.writeObject(this.getName()+" out");
+                this.out.flush();
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -289,28 +294,11 @@ public class Consumer extends Node{
 
         if (v != null) {
             MusicFile m = v.getMusicFile();
-            String fileName = m.getArtistName() + "-" + m.getTrackName() +"_"+Integer.toString(m.getId()) + ".mp3";
-            String path = basePath + fileName;
-            //String filename2 = m.getArtistName() + "-" + m.getTrackName() +"_"+Integer.toString(m.getId()) +"_modified.mp3";
-            //String path2 = basePath + filename2;
+            String fileName = m.getArtistName() + "-" + m.getTrackName() +"_"+ m.getId() + ".mp3";
             try {
                 File of = new File(basePath, fileName);
                 outstream = new FileOutputStream(of);
                 outstream.write(m.getMusicFileExtract());
-                Mp3File chunk = new Mp3File(path);
-                ID3v2 id3v2Tag;
-                if (chunk.hasId3v2Tag()) {
-                    id3v2Tag = chunk.getId3v2Tag();
-                } else {
-                    id3v2Tag = new ID3v24Tag();
-                    chunk.setId3v2Tag(id3v2Tag);
-                }
-                id3v2Tag.setTrack(m.getTrackName());
-                id3v2Tag.setArtist(m.getArtistName());
-                id3v2Tag.setAlbum(m.getAlbumInfo());
-                id3v2Tag.setGenreDescription(m.getGenre());
-                //TODO check it again
-                //chunk.save(path2);
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -351,11 +339,13 @@ public class Consumer extends Node{
         MusicFile m = listOfValues.get(0).getMusicFile();
         String fileName = m.getArtistName() + "-" + m.getTrackName() + ".mp3";
         String path = basePath + fileName;
+        String filename2 = m.getArtistName() + "-" + m.getTrackName() +"_modified.mp3";
+        String path2 = basePath + filename2;
         try {
             File of = new File(basePath, fileName);
             outstream = new FileOutputStream(of);
             outstream.write(reader);
-            Mp3File chunk = new Mp3File(path);
+            /*Mp3File chunk = new Mp3File(path);
             ID3v2 id3v2Tag;
             if (chunk.hasId3v2Tag()) {
                 id3v2Tag = chunk.getId3v2Tag();
@@ -366,9 +356,10 @@ public class Consumer extends Node{
             id3v2Tag.setTrack(m.getTrackName());
             id3v2Tag.setArtist(m.getArtistName());
             id3v2Tag.setAlbum(m.getAlbumInfo());
-            id3v2Tag.setGenreDescription(m.getGenre());
-            //TODO check it again
-            //chunk.save(path);
+            if(!m.getGenre().equals("unknown")) {
+                id3v2Tag.setGenreDescription(m.getGenre());
+            }
+            chunk.save(path2);*/
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -416,12 +407,12 @@ public class Consumer extends Node{
     //public void playData(ArtistName artistName, Value value){}
 
     //MAIN
-    public static void main(String args[]){
+    public static void main(String[] arg){
         //may auto-generate name and it is not needed to be given by keyboard
         /*args[0]->name
           args[1]->IP broker
           args[2]->Port broker
          */
-        new Consumer(args[0],args[1],Integer.parseInt(args[2]));
+        new Consumer(arg[0],arg[1],Integer.parseInt(arg[2]));
     }
 }
