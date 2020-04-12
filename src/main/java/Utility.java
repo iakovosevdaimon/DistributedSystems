@@ -1,4 +1,9 @@
-//READ THE FILES AND MAYBE IT IS USED IN ORDER TO SPLIT CHUNKS
+/*
+    IAKOVOS EVDAIMON 3130059
+    NIKOS KOULOS 3150079
+    STEFANOS PAVLOPOULOS 3130168
+    GIANNIS IPSILANTIS 3130215
+ */
 
 import com.mpatric.mp3agic.*;
 import javax.swing.*;
@@ -14,10 +19,14 @@ public class Utility {
 
     public Utility(){}
 
+    /* method in order to read the mp3 files and the metadata of these files from the dataset2
+       and also split them into chunks of 512KB
+     */
     public static HashMap<ArtistName, HashMap<String, Queue<MusicFile>>> readSongs(String regExp){
-        String reguralExpression = "^["+regExp+"].*$";
-        //File folder = getDatasetFolder();
-        File folder = new File("E:\\Users\\IAKOVOS\\Desktop\\DISTIRBUTED\\dataset2") ;
+        String reguralExpression = "(?i)^["+regExp+"].*$";
+        //take dataset directory and folder by using the custom gui
+        File folder = getDatasetFolder();
+        //File folder = new File("E:\\Users\\IAKOVOS\\Desktop\\DISTIRBUTED\\dataset2") ;
         HashMap<ArtistName, HashMap<String, Queue<MusicFile>>> listOfSongs = new HashMap<>();
         if(folder!=null){
             String songPath;
@@ -35,7 +44,6 @@ public class Utility {
                             Mp3File song;
                             try {
                                 song = new Mp3File(songPath);
-                                //MusicFile sing = new MusicFile();
                                 ID3v2 id3v2Tag;
                                 if (song.hasId3v2Tag()) {
                                     id3v2Tag = song.getId3v2Tag();
@@ -47,6 +55,7 @@ public class Utility {
                                 //check firstname or lastname
                                 String artist = id3v2Tag.getArtist();
                                 String[] tokens = artist.split(" ");
+                                //here the check the letter of firstname of artist
                                 if(tokens[0].matches(reguralExpression)) {
                                     if(id3v2Tag.getArtist()!=null) {
                                         Queue<MusicFile> chunks = new LinkedList<>();
@@ -116,56 +125,6 @@ public class Utility {
                             } catch (Exception e) {
                                     e.printStackTrace();
                             }
-
-                                /*
-                                if(id3v2Tag.getArtist()!=null)
-                                    sing.setArtistName(id3v2Tag.getArtist());
-                                else
-                                    sing.setArtistName("unknown");
-                                */
-                                /*sing.setArtistName(id3v2Tag.getArtist());
-                                //String albumInfo = id3v2Tag.getAlbum()+" "+id3v2Tag.getAlbumArtist();
-                                String albumInfo = id3v2Tag.getAlbum();
-                                sing.setAlbumInfo(albumInfo);
-                                String genre = id3v2Tag.getGenre() + " (" + id3v2Tag.getGenreDescription() + ")";
-                                sing.setGenre(genre);
-                                String title = fileEntry.getName();
-                                int index = title.indexOf(".mp3");
-                                title = title.substring(0,index);
-                                sing.setTrackName(title);*/
-                                //sing.setTrackName(id3v2Tag.getTitle());
-
-
-
-                                /*
-                                int k = 100;
-                                byte[] reader = new byte[k];
-                                byte[] b = null;
-                                int bytesAmount = 0;
-                                int count = 0;
-                                while ((bytesAmount = input.read(reader)) > 0) {
-                                    if(count>0){
-                                        byte temp = new byte[b.length+reader.length];
-                                        for (int i = 0; i < combined.length; ++i){
-                                            temp[i] = i < b.length ? b[i] : reader[i - b.length];
-                                        }
-                                        b = temp;
-                                    }
-                                    else
-                                        b = reader;
-                                    count++:
-                                }
-                                */
-
-                                //int size = (int)fileEntry.length();
-                                //System.out.println(String.valueOf(size));
-                                //System.out.println(String.valueOf(fileEntry.length()));
-                                //byte[] reader = new byte[size];
-                                //input.read(reader);
-                                //sing.setMusicFileExtract(reader);
-                                //input.close();
-                                //allSongsCollection.add(sing);
-
                         }
                     }
                 }
@@ -178,7 +137,7 @@ public class Utility {
         return listOfSongs;
     }
 
-    //Folder of dataset chooser
+    //GUI in order to choose the directory of dataset
     public static File getDatasetFolder(){
         File file = null;
         JFileChooser fc = new JFileChooser(FileSystemView.getFileSystemView().getHomeDirectory());
@@ -200,20 +159,18 @@ public class Utility {
         return file;
     }
 
-    //TODO read txt with brokers
+    //read json which involves the initial informations of brokers like name,ip and port
     public static  List<String[]> readBrokers(){
         List<String[]> list = new ArrayList<>();
         File currentDirectory = new File(new File(".").getAbsolutePath());
-        //System.out.println(currentDirectory);
         String currentDirectoryPath = currentDirectory.getAbsolutePath()
                 .substring(0,currentDirectory.getAbsolutePath().length() - 1);
-        //System.out.println(currentDirectoryPath);
+
         /* txt Files Base Path */
         String basePath = currentDirectoryPath+"Data\\";
-        //System.out.println(basePath);
+
         /*  Path for each file */
         String brokers = basePath + "brokers.json";
-        //System.out.println(brokers);
         JSONParser parser = new JSONParser();
         try {
             Object obj = parser.parse(new FileReader(brokers));
@@ -227,7 +184,6 @@ public class Utility {
                 JSONObject broker = (JSONObject) entry;
                 String name = (String) broker.get("name");
                 String ip = (String) broker.get("ip");
-                //System.out.println(broker.get("port").getClass().getName());
                 Integer port = (int) (long) broker.get("port");
                 String p = port.toString();
                 String [] pa = new String[3];
@@ -243,9 +199,4 @@ public class Utility {
             return list;
         }
     }
-
-
-
-    //create two new methods one to read only artists and song titles in the start of publisher
-    //and another one that read the specific song and split it into chunks when it is requested by consumer-broker
 }

@@ -1,3 +1,10 @@
+/*
+    IAKOVOS EVDAIMON 3130059
+    NIKOS KOULOS 3150079
+    STEFANOS PAVLOPOULOS 3130168
+    GIANNIS IPSILANTIS 3130215
+ */
+
 import java.io.Serializable;
 
 public class ArtistName implements Serializable {

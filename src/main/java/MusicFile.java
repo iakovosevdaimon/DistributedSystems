@@ -1,5 +1,12 @@
-import java.io.IOException;
-import java.io.InputStream;
+/*
+    IAKOVOS EVDAIMON 3130059
+    NIKOS KOULOS 3150079
+    STEFANOS PAVLOPOULOS 3130168
+    GIANNIS IPSILANTIS 3130215
+ */
+
+
+import java.io.*;
 import java.io.Serializable;
 
 //TODO may add id attribute

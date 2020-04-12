@@ -1,8 +1,20 @@
+/*
+    IAKOVOS EVDAIMON 3130059
+    NIKOS KOULOS 3150079
+    STEFANOS PAVLOPOULOS 3130168
+    GIANNIS IPSILANTIS 3130215
+ */
+
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+/*
+ An specific class that is used in order to be created objects which will inform consumer
+ about informations of brokers in system and their related artists
+*/
 public class Info implements Serializable {
     private static final long serialVersionUID = -3385262724434599429L;
     private List<String[]> brokerInfo;

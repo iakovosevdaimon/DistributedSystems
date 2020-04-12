@@ -1,8 +1,13 @@
+/*
+    IAKOVOS EVDAIMON 3130059
+    NIKOS KOULOS 3150079
+    STEFANOS PAVLOPOULOS 3130168
+    GIANNIS IPSILANTIS 3130215
+ */
+
 import java.io.*;
-import java.math.BigInteger;
 import java.net.InetAddress;
-import java.net.Socket;
-import java.net.UnknownHostException;
+import java.net.*;
 import java.util.*;
 
 public class Node{
@@ -17,12 +22,14 @@ public class Node{
         this.brokers = new ArrayList<>();
     }
 
+    //constructor which is used by Broker
     public Node(String name, int port){
         this.name = name;
         this.port = port;
         this.brokers = new ArrayList<>();
     }
 
+    //constructor which is used by Consumer and Publisher
     public Node(String name, String ip, int port) {
         this.name = name;
         this.ip = ip;
@@ -30,23 +37,20 @@ public class Node{
         this.brokers = new ArrayList<>();
     }
 
-
+    /* method that is used by Broker in order to be informed about other brokers of system
+       to inform his ip address and to initialize the list of brokers which contains BrokerInfo objects
+     */
     public void init(int port){
         try {
             InetAddress ia = InetAddress.getLocalHost();
-            System.out.println(ia);
             this.setIp(ia.getHostAddress());
         } catch (Exception e) {
             e.printStackTrace();
         }
         //read json file with information of brokers
         List<String[]> list = Utility.readBrokers();
-        /*List<Broker> b = new ArrayList<>();
-        for(String[] l :list){
-            Broker br = new Broker(l[0],l[1],Integer.parseInt(l[2]));
-            b.add(br);
-        }
-        this.setBrokers(b);*/
+        //generates BrokerInfo objects and stores them in a list
+        //Each BrokerInfo object concerns informations about a broker(name,ip,port,isAlive,hash and list of related artists)
         List<BrokerInfo> broks = new ArrayList<>();
         for(String[] l :list){
             List<String> brokerInfo = new ArrayList<>();
@@ -59,12 +63,10 @@ public class Node{
         }
         this.setBrokers(broks);
 
-
-        //updateNodes();
     }
 
 
-
+    //method which is used mainly in consumer
     public void connect(String ip, int port){
         try
         {
@@ -80,30 +82,25 @@ public class Node{
         }
     }
 
+    //method to close socket, outputstreams and inputstreams
     public void disconnect(){
-        //update all other brokers that one comrade leaves
-        /*if(this instanceof Broker){
-            this.getBrokers().remove(this);
-            updateNodes();
-        }*/
         System.out.println("Closing this connection : " + this.requestSocket);
         try {
-
             this.requestSocket.close();
             System.out.println("Connection closed");
         } catch (Exception e) {
-            System.out.println("Failed to disconnect");
+            System.err.println("Failed to disconnect");
             e.printStackTrace();
         }
         try {
             this.out.close();
             this.in.close();
-            //this.scn.close();
         }
         catch (Exception e){
             e.printStackTrace();
         }
     }
+
 
     public void disconnect(Socket s, ObjectInputStream in, ObjectOutputStream out){
         try{

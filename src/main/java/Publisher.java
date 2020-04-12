@@ -1,3 +1,10 @@
+/*
+    IAKOVOS EVDAIMON 3130059
+    NIKOS KOULOS 3150079
+    STEFANOS PAVLOPOULOS 3130168
+    GIANNIS IPSILANTIS 3130215
+ */
+
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -6,21 +13,15 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.*;
 
-import static java.lang.Thread.sleep;
 
-//TODO use registeredBrokers
 public class Publisher extends Node{
-    //private List<ArtistName> relatedArtists;
-    //eite private HashMap<String, HashMap<String, Queue<MusicFile>>> listOfSongs;
-    //key artistname->values hashmap with key song title and value a queue of chunks
+
     private HashMap<ArtistName, HashMap<String, Queue<MusicFile>>> listOfSongs;
     private HashMap<Socket, String[]> registeredBrokers;
     private HashMap<String[], List<ArtistName>> listOfBrokersRelatedArtists;
     private List<String[]> listOfBrokers;
     private String keys;
     private String publisherIp;
-    //private ObjectInputStream in;
-    //private ObjectOutputStream out;
     private ServerSocket serverSocket;
 
 
@@ -52,21 +53,16 @@ public class Publisher extends Node{
         this.listOfSongs = Utility.readSongs(this.getKeys());
     }
 
+    //connect to every broker in system and inform them about your artists
     private void connect(){
         List<ArtistName> artistNames = new ArrayList<>(this.getListOfSongs().keySet());
         String[] publisher = new String[3];
         publisher[0] = this.getName();
         publisher[1] = this.getIp();
         publisher[2] = Integer.toString(this.getPort());
-        /* TODO MAYBE CHANGE IT AND DO IT FIRSTLY TO TAKE LIST OF BROKERS IN ORDER TO KNOW
-         *  WHO BROKERS ARE CONNECTED TO SYSTEM (checking variable isAlive of Broker)
-         *  IN THIS CASE IT IS NOT NEEDED TO READ json of brokers, publisher will only
-         *  want to know  the ip and port of one random broker
-         */
         for(String[] broker : this.getListOfBrokers()) {
             Thread t = new Thread(() ->
             {
-                //super.connect(broker[1], Integer.parseInt(broker[2]));
                 Socket s = null;
                 ObjectOutputStream out = null;
                 ObjectInputStream in = null;
@@ -96,6 +92,7 @@ public class Publisher extends Node{
         }
     }
 
+    //method that waits for requests by brokers in order to send them the appropriate chunks
     private void waitRequest() {
         try {
             serverSocket = new ServerSocket(this.getPort());
@@ -128,6 +125,7 @@ public class Publisher extends Node{
         }
     }
 
+    //handle the requests of brokers for chunks
     private void handleRequest(Socket s, ObjectOutputStream output, ObjectInputStream input) {
         try {
             String[] infos = (String[]) input.readObject();
@@ -139,13 +137,13 @@ public class Publisher extends Node{
             String song = (String) input.readObject();
             ArtistName index1 = null;
             String index2 = null;
-            //TODO CHECK WHY INFINITIVE LOOP IF SONG IS WRONG
+
             for(ArtistName a : this.getListOfSongs().keySet()){
                 if(a.getArtistName().equalsIgnoreCase(artist.getArtistName())){
-                    System.out.println(1);
+
                     for(String str : this.getListOfSongs().get(a).keySet()){
                         if(str.equalsIgnoreCase(song)){
-                            System.out.println(2);
+
                             index1 = a;
                             index2 = str;
                             songExist = true;
@@ -159,19 +157,10 @@ public class Publisher extends Node{
             }
             //call push
             if(songExist){
-                System.out.println(3);
                 Queue<MusicFile> tem_queue = new LinkedList<>(this.getListOfSongs().get(index1).get(index2));
-                /*Queue<Value> values_queue = new LinkedList<Value>();
-                for(MusicFile m : tem_queue){
-                    Value val = new Value(m);
-                    values_queue.add(val);
-                }*/
                 do{
-                    System.out.println(4);
                     Value v = push(index1,tem_queue);
                     output.writeObject(v);
-                    //TODO sleep may not be used if i use threads in save in consumer
-                    //sleep(1000);
                     artist =(ArtistName) input.readObject();
                     song = (String) input.readObject();
                 }while(artist!=null && song!=null);
@@ -200,18 +189,21 @@ public class Publisher extends Node{
     }
 
 
-    //Broker hashTopic(ArtistName artistName);
-    //TODO THREAD SLEEP
+    /*method that whenever it is called it sends the chunks to broker
+      this method stops to be called when artist and song that broker
+      has sent are null. Broker sends a null artist and song when he
+      receives a null value which it means that queue of values is empty
+     */
     private Value push(ArtistName artistName,  Queue<MusicFile> queue){
         Value value = null;
         MusicFile mF = queue.poll();
         if(mF!=null) {
             value = new Value(mF);
-            System.out.println(5);
         }
         return value;
     }
 
+    //this method is called when the song that is requested doesn't exist in dataset
     public void notifyFailure(ObjectOutputStream output){
         Value v = new Value();
         v.setFailure(true);
@@ -265,13 +257,13 @@ public class Publisher extends Node{
 
 
     //MAIN
+    /*
+        args[0]->name of publisher
+        args[1]->IP of publisher
+        args[2]->Port of publisher
+        args[3]->publisher's keys that he is responsible for them(give the initial letters of artists for whom the publisher will be responsible)
+     */
     public static void main(String[] arg){
-        //may auto-generate name and it is not needed to be given by keyboard
-        /*args[0]->name
-          args[1]->IP of publisher
-          args[2]->Port of publisher
-          args[3]->publisher's keys that he is responsible for them
-         */
         new Publisher(arg[0],arg[1],Integer.parseInt(arg[2]),arg[3]);
     }
 }

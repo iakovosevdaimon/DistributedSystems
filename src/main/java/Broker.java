@@ -1,7 +1,14 @@
+/*
+    IAKOVOS EVDAIMON 3130059
+    NIKOS KOULOS 3150079
+    STEFANOS PAVLOPOULOS 3130168
+    GIANNIS IPSILANTIS 3130215
+ */
+
+
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.Serializable;
 import java.math.BigInteger;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -9,17 +16,15 @@ import java.util.*;
 
 import static java.lang.Thread.sleep;
 
-//I CAN USE HASHCODE INSTEAD OF MD5 hash
-//TODO use registeredCOnsumers, Publishers
-public class Broker extends Node implements Serializable {
-    private static final long serialVersionUID = 2872573403920682364L;
-    private HashMap<Socket, String> registeredConsumers; //may synchronization,may change position of key-vale
-    private HashMap< Socket,String[]> registeredPublishers;//may synchronization,may change position of key-vale
+
+public class Broker extends Node {
+
+    private HashMap<Socket, String> registeredConsumers;
+    private HashMap< Socket,String[]> registeredPublishers;
     private ServerSocket serverSocket;
     private BigInteger hashCodeOfBroker;
-    private HashMap<ArtistName, String[]> relatedArtistsOfPubs;//may synchronization ArtistName->value: Publisher name,port,ip
-    private List<ArtistName> relatedArtists; //may synchronization
-    private HashMap<ArtistName,ArrayList<Queue<Value>>> queueOfSongs; //may not be used //may synchronization
+    private HashMap<ArtistName, String[]> relatedArtistsOfPubs;// ArtistName->value: Publisher name,port,ip
+    private List<ArtistName> relatedArtists;
     private boolean isAlive=false;
 
 
@@ -31,17 +36,14 @@ public class Broker extends Node implements Serializable {
 
     public Broker(String name, int port){
         super(name,port);
-        //this.getBrokers().add(this);
         this.registeredConsumers = new HashMap<>();
         this.registeredPublishers = new HashMap<>();
         this.relatedArtistsOfPubs = new HashMap<>();
         this.relatedArtists = new ArrayList<>();
-        this.queueOfSongs = new HashMap<>();
         this.isAlive = true;
         this.hashCodeOfBroker = Md5.takeHash(this.getIp()+Integer.toString(port));
         super.init(port);
         this.update(1);
-        //maybe call it later
         updateNodes();
         connect(port);
     }
@@ -53,7 +55,12 @@ public class Broker extends Node implements Serializable {
 
 
 
-
+    /* establish serversocket and wait until accept requests in broker
+       a request can come from others brokers of system or consumers or publishers when they are up
+       when a other node is waked up and wants to connect with this broker after the opening of socket
+       it sends his class name in order this broker handles the requests appropriately. Broker uses
+       multithreading in order to be capable to serve multiple requests
+     */
     private void connect(int port){
         try {
             serverSocket = new ServerSocket(port);
@@ -62,10 +69,8 @@ public class Broker extends Node implements Serializable {
                 Socket s = serverSocket.accept();
                 ObjectInputStream in = new ObjectInputStream(s.getInputStream());
                 ObjectOutputStream out = new ObjectOutputStream(s.getOutputStream());
-                //System.out.println("Problem");
                 String obj = (String) in.readObject();
-                System.out.println(obj);
-                //may not use publisher handler here but a simple thread created with lambdas
+
                 if(obj.equalsIgnoreCase("Publisher")){
                     Thread job_publisher = new Thread(() ->
                     {
@@ -77,8 +82,7 @@ public class Broker extends Node implements Serializable {
                     });
                     job_publisher.start();
                 }
-                //may use here both publisher handler and consumer handler or maybe create local threads and here
-                //use thread inside thread
+
                 else if(obj.equalsIgnoreCase("Consumer")){
                     Thread job_consumer = new Thread(() ->
                     {
@@ -87,13 +91,8 @@ public class Broker extends Node implements Serializable {
                     job_consumer.start();
 
                 }
-                    /*pws tha xeirizetai to request apo tous brokers enas broker?
-                     *logika apla tha enhmerwnei thn lista me tous brokers pou exei
-                     *kai tha krataei anoixto to connection gia ama pesei na stalei mhnuma
-                     *eite gia na kserei oti enas broker efuge
-                     */
+
                 else if(obj.equalsIgnoreCase("Broker")){
-                    System.out.println("IN");
                     Thread job_broker = new Thread(() ->
                     {
                         communicationOfBrokers(s,in,out);
@@ -115,7 +114,9 @@ public class Broker extends Node implements Serializable {
         }
     }
 
-    //TODO we must send all related artists of broker to publisher or only related artists of broker for which is responsible the specific publisher?
+    /* method that is used in order to inform publisher about brokers informations like
+        his name, ip, port and related artists
+     */
     private void informPublishers(Socket s, ObjectInputStream input, ObjectOutputStream output) {
         String[] str = new String[3];
         str[0] = this.getName();
@@ -140,6 +141,11 @@ public class Broker extends Node implements Serializable {
         }
     }
 
+    /* This method is responsible to handle requests for songs from consumer. If consumer is registered in broker
+        broker makes a request in responsible publisher and the publisher sends to broker the chunks of song or
+        informs him that requested song is missing from dataset. Next, the broker is capable to send chunks,
+        that are received from publisher, to consumer or informs him that the song there isn't in dataset
+    */
     private void handleRequest(Socket s,ObjectInputStream input, ObjectOutputStream output){
         Socket pubrequest = null;
         ObjectInputStream inpub = null;
@@ -152,7 +158,6 @@ public class Broker extends Node implements Serializable {
                 output.flush();
             }
             String reg =(String) input.readObject();
-            //TODO view again register AND else-> what to do ?
             if(reg.equalsIgnoreCase("Register")) {
                 String con = (String) input.readObject();
                 synchronized (this.getRegisteredConsumers()) {
@@ -167,9 +172,8 @@ public class Broker extends Node implements Serializable {
                         break;
                     }
                 }
-                //TODO handle if song doesn't exist
+
                 if (pub != null) {
-                    System.out.println(1);
                     pubrequest = new Socket(pub[1], Integer.parseInt(pub[2]));
                     inpub = new ObjectInputStream(pubrequest.getInputStream());
                     outpub = new ObjectOutputStream(pubrequest.getOutputStream());
@@ -185,27 +189,9 @@ public class Broker extends Node implements Serializable {
                     Value value;
                     do {
                         value = pull(a, song, inpub, outpub);
-                        System.out.println(2);
-                        System.out.println(value);
                         output.writeObject(value);
                         output.flush();
-                        /*TODO
-                         * sleep may not be used if i use threads in save in consumer
-                         * where is more correct to use sleep of thread in publisher or broker?
-                         * I think is in broker because broker sends a new request calling pull
-                         * and publisher waits until broker sends artistaname and song so broker will call pull after 3000 ms
-                         * on the other hand if sleep thread in publisher broker will call pull, he will send artistname
-                         * and song and broker will wait until publisher sends new value
-                         * using sleep will be smoother to send values when there is communication of different machines
-                         * in a LAN instead of a local machine. Thus, it will be more easy to handle the problem of transfer
-                         * packages through network
-                         * Although, sleep may create a big delay in the transfer of chunks(especially locally).
-                         * My purpose is to balance the delay of network with the speed that a broker sends a request in publisher
-                         * When I use sleep it is not needed the use of threads in consumer in save method
-                         * But it is very possible that it won't be needed to use sleep and there is not any problem
-                         * with delays in transfer of packages through network
-                         */
-                        //sleep(3000);
+                        sleep(100);
                         if (value != null) {
                             if (value.getFailure()) {
                                 break;
@@ -265,18 +251,21 @@ public class Broker extends Node implements Serializable {
 
     }
 
+    /*
+      each time that publisher sends to broker a new chunk, broker calls method pull in order to make a new request
+      to publisher for the next chunk
+    */
     private Value pull(ArtistName artistName, String song, ObjectInputStream inpub, ObjectOutputStream outpub){
         Value v = null;
         try {
-            System.out.println(3);
             outpub.writeObject(artistName);
             outpub.flush();
             outpub.writeObject(song);
             outpub.flush();
             v = (Value) inpub.readObject();
-            System.out.println(3.1);
+
             if(v == null){
-                System.out.println(4);
+
                 outpub.writeObject(null);
                 outpub.flush();
                 outpub.writeObject(null);
@@ -290,6 +279,11 @@ public class Broker extends Node implements Serializable {
 
     }
 
+    /*
+        method to generate Info object that will send to consumer in order to inform it about brokers informations
+        and their related artists. This object is sent during the initial connection of consumer on system or
+        each time that consumer wants to receive a new song
+     */
     private Info createInfoObject() {
         List<String[]> infos = new ArrayList<>();
         HashMap<ArtistName,String[]> brokersRelatedArtists = new HashMap<>();
@@ -299,7 +293,6 @@ public class Broker extends Node implements Serializable {
             st[1] = b.getBrokerInfo().get(1);
             st[2] = b.getBrokerInfo().get(2);
             for(ArtistName a: b.getRelatedArtists()){
-                //System.out.println(a.getArtistName());
                 brokersRelatedArtists.put(a,st);
             }
             infos.add(st);
@@ -308,19 +301,18 @@ public class Broker extends Node implements Serializable {
         return new Info(infos,brokersRelatedArtists);
     }
 
+    //method in order to update list of brokers about this broker
     public void update(int flag){
         for (int i=0; i<this.getBrokers().size(); i++){
             if(this.getBrokers().get(i).getBrokerInfo().get(0).equalsIgnoreCase(this.getName())&& this.getBrokers().get(i).getBrokerInfo().get(1).equalsIgnoreCase(this.getIp()) && Integer.parseInt(this.getBrokers().get(i).getBrokerInfo().get(2)) == this.getPort()){
-                System.out.println(this.getHashCodeOfBroker());
+
                 if (flag==1) {
-                    System.out.println("update");
-                    System.out.println(flag);
+
                     this.getBrokers().get(i).getBrokerInfo().add(String.valueOf(this.isAlive));
                     this.getBrokers().get(i).getBrokerInfo().add(this.hashCodeOfBroker.toString());
                 }
                 else{
-                    System.out.println("update");
-                    System.out.println(flag);
+
                     BrokerInfo bi = new BrokerInfo(this.getBrokers().get(i).getBrokerInfo(),this.relatedArtists);
                     this.getBrokers().set(i,bi);
                 }
@@ -330,14 +322,11 @@ public class Broker extends Node implements Serializable {
         }
     }
 
+    //method that is used in order to update list of brokers in system
     private void updateListOfBrokers(BrokerInfo nb){
         for (int i=0; i < this.getBrokers().size(); i++){
-            System.out.println("communication loop");
-            System.out.println(nb.getBrokerInfo().get(0));
             if(this.getBrokers().get(i).getBrokerInfo().get(0).equalsIgnoreCase(nb.getBrokerInfo().get(0))&& this.getBrokers().get(i).getBrokerInfo().get(1).equalsIgnoreCase(nb.getBrokerInfo().get(1)) && Integer.parseInt(this.getBrokers().get(i).getBrokerInfo().get(2)) == Integer.parseInt(nb.getBrokerInfo().get(2))){
-                System.out.println("communication 1");
                 if(Boolean.parseBoolean(nb.getBrokerInfo().get(3))){
-                    System.out.println("communication 2");
                     this.getBrokers().set(i,nb);
                     break;
                 }
@@ -349,12 +338,8 @@ public class Broker extends Node implements Serializable {
     //method for inner-communication of brokers
     private void communicationOfBrokers(Socket s,ObjectInputStream input, ObjectOutputStream output) {
         try {
-            System.out.println("communication 0");
             BrokerInfo nb = (BrokerInfo) input.readObject();
-            System.out.println("communication 0.1");
-            System.out.println(nb==null);
             synchronized (this.getBrokers()){
-                System.out.println(this.getBrokers().size());
                 updateListOfBrokers(nb);
             }
             BrokerInfo thisBroker = this.generateBrokerInfoObject();
@@ -374,12 +359,14 @@ public class Broker extends Node implements Serializable {
         }
     }
 
-
+    /*calculate hash keys of brokers and artists for which brokers are informed after a publisher is connected
+      on the system. After that this method set the appropriate artists in every broker depending on their hash
+      and the hash of artist. Each broker is responsible for the artists for whom their hashes are smaller than
+      this broker hash and greater than the hash of the broker which hash is the nearest previous hash of the hash
+      of this broker. If hash of artist is greater that the hash of broker with the maximum value we use modulo
+     */
     private void calculateKeys(Socket s,ObjectInputStream input, ObjectOutputStream output){
-        //String toHash = this.getIp()+ Integer.toString(this.getPort());
-        //this.hashCodeOfBroker=Md5.takeHash(toHash);
-        //eite kateutheian stelnetai ena tetoio object HashMap<ArtistName,String[]> artists
-        //alliws
+
         BigInteger max = BigInteger.ZERO;
         BigInteger previousMax = BigInteger.ZERO;
         BigInteger min = this.getHashCodeOfBroker();
@@ -388,14 +375,11 @@ public class Broker extends Node implements Serializable {
         int count = 0;
         //find broker with maximum hash and broker with the previous hash of this broker's hash
         for(BrokerInfo b : this.getBrokers()){
-            System.out.println(b.getBrokerInfo().get(0));
-            //System.out.println(b.getBrokerInfo().get(4));
-            System.out.println(this.getHashCodeOfBroker());
+
             if(Boolean.parseBoolean(b.getBrokerInfo().get(3))) {
                 BigInteger hashOfBroker = new BigInteger(b.getBrokerInfo().get(4));
-                System.out.println(hashOfBroker);
+
                 if (hashOfBroker.compareTo(max) >= 0) {
-                    //System.out.println(b.getHashCodeOfBroker());
                     max = hashOfBroker;
                 }
                 //find the previous hash number of this broker's hash number
@@ -422,20 +406,16 @@ public class Broker extends Node implements Serializable {
                 }
             }
         }
-        System.out.println(max);
-        System.out.println(previousMax);
-        System.out.println(min);
+
         try {
             String[] publisher = (String[]) input.readObject();
             List<ArtistName> listOfArtists = (List<ArtistName>) input.readObject();
             if(listOfArtists!=null && !listOfArtists.isEmpty()) {
-                System.out.println(1);
                 for (ArtistName a : listOfArtists) {
-                    System.out.println(a.getArtistName());
                     if (a != null) {
-                        System.out.println(2);
+
                         if (this.getBrokers().size() == 1) {
-                            System.out.println(5);
+
                             synchronized (this.getRelatedArtists()) {
                                 this.getRelatedArtists().add(a);
                             }
@@ -446,20 +426,12 @@ public class Broker extends Node implements Serializable {
                         //else use hashCode()
                         else {
                             BigInteger hashArtist = Md5.takeHash(a.getArtistName());
-                            System.out.println(hashArtist);
+
                             if (max.compareTo(hashArtist) <= 0) {
-                                System.out.println(3);
-                                System.out.println(this.hashCodeOfBroker);
                                 hashArtist = Md5.modulo(hashArtist, max);
-                                System.out.println(hashArtist);
                             }
-                            System.out.println(hashArtist);
-                            System.out.println(previousMax.compareTo(hashArtist));
-                            System.out.println(this.hashCodeOfBroker.compareTo(hashArtist));
-                            System.out.println(previousMax);
-                            System.out.println(previousMax.compareTo(this.hashCodeOfBroker));
                             if ((previousMax.compareTo(hashArtist) <= 0 ) && this.hashCodeOfBroker.compareTo(hashArtist) > 0) {
-                                System.out.println(4);
+
                                 synchronized (this.getRelatedArtists()) {
                                     this.getRelatedArtists().add(a);
                                 }
@@ -476,19 +448,16 @@ public class Broker extends Node implements Serializable {
         }
     }
 
-    //TODO INFORM THE BROKER ABOUT OTHER BROKERS
-    //check again the logic
-    public void updateNodes(){
-        //TODO maybe thread to send simultaneously
-        //TODO maybe do it with thread?
 
+    /*method to inform a broker the other brokers' list about its informations and also to inform his list about
+     the other brokers
+    */
+    public void updateNodes(){
         for(BrokerInfo b : this.getBrokers()){
-            System.out.println(b.getBrokerInfo().get(0));
-            System.out.println(this.getName());
+
             if((Integer.parseInt(b.getBrokerInfo().get(2))!=this.getPort() || ! b.getBrokerInfo().get(1).equalsIgnoreCase(this.getIp())) && !b.getBrokerInfo().get(0).equalsIgnoreCase(this.getName())){
 
-                System.out.println(b.getBrokerInfo().get(0));
-                System.out.println(this.getName());
+
                 Thread job = new Thread(() ->
                 {
 
@@ -522,18 +491,10 @@ public class Broker extends Node implements Serializable {
                 }*/
             }
             else {
-                System.out.println("FIND HIMSELF");
                 break;
             }
         }
     }
-
-    //public Publisher acceptConnection(Publisher publisher){}
-
-    //public Consumer acceptConnection(Consumer consumer){}
-
-    public void notifyPublisher(String notification){}
-
 
 
     @Override
@@ -602,7 +563,11 @@ public class Broker extends Node implements Serializable {
 
 
 
-
+    //MAIN
+    /*
+     arg[0]-> name of this broker
+     arg[1]-> port that will be used by this broker in order to listen to new connections
+     */
     public static void main(String[] arg){
         int port = Integer.parseInt(arg[1]);
         new Broker(arg[0],port);

@@ -1,5 +1,19 @@
+/*
+    IAKOVOS EVDAIMON 3130059
+    NIKOS KOULOS 3150079
+    STEFANOS PAVLOPOULOS 3130168
+    GIANNIS IPSILANTIS 3130215
+ */
+
 import java.io.Serializable;
 import java.util.List;
+
+
+/*
+   Class that creates objects which are sent between brokers
+   in order to inform them about other brokers of system
+ */
+
 
 /* List<String> -> informations of each broker
        Position 0->name of broker
@@ -8,7 +22,8 @@ import java.util.List;
        Position 3->value of boolean isAlive of broker
        After update method in Broker's class List<String> is updated with a new element in
        position 4-> value of hash of broker
-     */
+ */
+
 
 public class BrokerInfo implements Serializable {
     private List<String> broker;
