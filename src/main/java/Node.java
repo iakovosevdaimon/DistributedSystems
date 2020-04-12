@@ -22,14 +22,14 @@ public class Node{
         this.brokers = new ArrayList<>();
     }
 
-    //constructor which is used by Broker
+    //constructor which is used by Broker and Publisher
     public Node(String name, int port){
         this.name = name;
         this.port = port;
         this.brokers = new ArrayList<>();
     }
 
-    //constructor which is used by Consumer and Publisher
+    //constructor which is used by Consumer
     public Node(String name, String ip, int port) {
         this.name = name;
         this.ip = ip;

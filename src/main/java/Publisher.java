@@ -21,14 +21,13 @@ public class Publisher extends Node{
     private HashMap<String[], List<ArtistName>> listOfBrokersRelatedArtists;
     private List<String[]> listOfBrokers;
     private String keys;
-    private String publisherIp;
     private ServerSocket serverSocket;
 
 
     public Publisher(){super();}
 
-    public Publisher(String name, String ip, int port, String keys){
-        super(name,ip,port);
+    public Publisher(String name, int port, String keys){
+        super(name,port);
         this.keys = keys;
         this.listOfSongs = new HashMap<>();
         this.registeredBrokers = new HashMap<>();
@@ -45,7 +44,7 @@ public class Publisher extends Node{
     private void init(){
         try {
             InetAddress ia = InetAddress.getLocalHost();
-            this.setPublisherIp(ia.getHostAddress());
+            this.setIp(ia.getHostAddress());
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -244,11 +243,6 @@ public class Publisher extends Node{
         return this.listOfBrokersRelatedArtists;
     }
 
-    public void setPublisherIp(String ip){
-        this.publisherIp = ip;
-    }
-
-    public String getPublisherIp(){return this.publisherIp;}
 
     public String getKeys(){return this.keys;}
 
@@ -264,6 +258,6 @@ public class Publisher extends Node{
         args[3]->publisher's keys that he is responsible for them(give the initial letters of artists for whom the publisher will be responsible)
      */
     public static void main(String[] arg){
-        new Publisher(arg[0],arg[1],Integer.parseInt(arg[2]),arg[3]);
+        new Publisher(arg[0],Integer.parseInt(arg[1]),arg[2]);
     }
 }
