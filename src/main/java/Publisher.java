@@ -253,9 +253,8 @@ public class Publisher extends Node{
     //MAIN
     /*
         args[0]->name of publisher
-        args[1]->IP of publisher
-        args[2]->Port of publisher
-        args[3]->publisher's keys that he is responsible for them(give the initial letters of artists for whom the publisher will be responsible)
+        args[1]->Port of publisher
+        args[2]->publisher's keys that he is responsible for them(give the initial letters of artists for whom the publisher will be responsible)
      */
     public static void main(String[] arg){
         new Publisher(arg[0],Integer.parseInt(arg[1]),arg[2]);

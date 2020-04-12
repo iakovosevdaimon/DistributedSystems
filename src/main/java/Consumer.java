@@ -220,7 +220,7 @@ public class Consumer extends Node{
 
         if (v != null) {
             MusicFile m = v.getMusicFile();
-            String fileName = m.getArtistName() + "-" + m.getTrackName() +"_"+ m.getId() + ".mp3";
+            String fileName = m.getArtistName() + "-" + m.getTrackName() +"_chunk"+ m.getId() + ".mp3";
             try {
                 File of = new File(basePath, fileName);
                 outstream = new FileOutputStream(of);
