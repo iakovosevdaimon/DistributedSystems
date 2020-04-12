@@ -180,8 +180,8 @@ public class Broker extends Node implements Serializable {
                     infos[0] = this.getName();
                     infos[1] = this.getIp();
                     infos[2] = Integer.toString(this.getPort());
-                    output.writeObject(infos);
-                    output.flush();
+                    outpub.writeObject(infos);
+                    outpub.flush();
                     Value value;
                     do {
                         value = pull(a, song, inpub, outpub);
