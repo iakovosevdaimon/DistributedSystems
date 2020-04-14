@@ -28,7 +28,6 @@ public class Broker extends Node {
     private boolean isAlive=false;
 
 
-
     public Broker(){
         super();
     }
@@ -62,56 +61,81 @@ public class Broker extends Node {
        multithreading in order to be capable to serve multiple requests
      */
     private void connect(int port){
-        try {
-            serverSocket = new ServerSocket(port);
-            while (true) {
+            try {
+                serverSocket = new ServerSocket(port);
+                while (true) {
 
-                Socket s = serverSocket.accept();
-                ObjectInputStream in = new ObjectInputStream(s.getInputStream());
-                ObjectOutputStream out = new ObjectOutputStream(s.getOutputStream());
-                String obj = (String) in.readObject();
+                    Socket s = serverSocket.accept();
+                    ObjectInputStream in = new ObjectInputStream(s.getInputStream());
+                    ObjectOutputStream out = new ObjectOutputStream(s.getOutputStream());
+                    String obj = (String) in.readObject();
 
-                if(obj.equalsIgnoreCase("Publisher")){
-                    Thread job_publisher = new Thread(() ->
-                    {
+                    if (obj.equalsIgnoreCase("Publisher")) {
+                        String flag = (String) in.readObject();
+                        if(flag.equalsIgnoreCase("in")) {
+                            Thread job_publisher = new Thread(() ->
+                            {
 
-                        calculateKeys(s,in,out);
-                        this.update(2);
-                        updateNodes();
-                        this.informPublishers(s,in,out);
-                    });
-                    job_publisher.start();
+                                calculateKeys(s, in, out);
+                                this.update(2);
+                                updateNodes();
+                                this.informPublishers(s, in, out);
+                            });
+                            job_publisher.start();
+                        }
+                        else{
+                            Thread exit_publisher = new Thread(() ->
+                            {
+                                publisherLeaves(s,out,in);
+                            });
+                            exit_publisher.start();
+                        }
+                    } else if (obj.equalsIgnoreCase("Consumer")) {
+                        Thread job_consumer = new Thread(() ->
+                        {
+                            handleRequest(s, in, out);
+                        });
+                        job_consumer.start();
+
+                    } else if (obj.equalsIgnoreCase("Broker")) {
+                        Thread job_broker = new Thread(() ->
+                        {
+                            communicationOfBrokers(s, in, out);
+                        });
+                        job_broker.start();
+                    }
                 }
 
-                else if(obj.equalsIgnoreCase("Consumer")){
-                    Thread job_consumer = new Thread(() ->
-                    {
-                        handleRequest(s,in,out);
-                    });
-                    job_consumer.start();
-
-                }
-
-                else if(obj.equalsIgnoreCase("Broker")){
-                    Thread job_broker = new Thread(() ->
-                    {
-                        communicationOfBrokers(s,in,out);
-                    });
-                    job_broker.start();
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                try {
+                    System.out.println(this.getName() + " closes " + "server socket in port " + this.getPort());
+                    serverSocket.close();
+                } catch (IOException ioException) {
+                    ioException.printStackTrace();
                 }
             }
 
-        } catch (Exception e) {
+    }
+
+    private void publisherLeaves(Socket s, ObjectOutputStream out, ObjectInputStream in) {
+        try{
+            List<ArtistName> publisherArtists = ( List<ArtistName>) in.readObject();
+            for(ArtistName a : publisherArtists){
+                if(this.getRelatedArtists().contains(a)){
+                    //System.out.println(a.getArtistName());
+                    this.getRelatedArtists().remove(a);
+                    this.getRelatedArtistsOfPubs().remove(a);
+                }
+            }
+        }catch (Exception e){
             e.printStackTrace();
         }
         finally {
-            try {
-                System.out.println(this.getName()+" closes "+"server socket in port "+this.getPort());
-                serverSocket.close();
-            } catch (IOException ioException) {
-                ioException.printStackTrace();
-            }
+            super.disconnect(s,in,out);
         }
+
     }
 
     /* method that is used in order to inform publisher about brokers informations like
@@ -180,6 +204,8 @@ public class Broker extends Node {
                     synchronized (this.getRegisteredPublishers()){
                         this.getRegisteredPublishers().put(pubrequest,pub);
                     }
+                    outpub.writeObject("new request");
+                    outpub.flush();
                     String[] infos = new String[3];
                     infos[0] = this.getName();
                     infos[1] = this.getIp();

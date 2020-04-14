@@ -71,6 +71,8 @@ public class Publisher extends Node{
                     in = new ObjectInputStream(s.getInputStream());
                     out.writeObject(this.getClass().getSimpleName());
                     out.flush();
+                    out.writeObject("in");
+                    out.flush();
                     out.writeObject(publisher);
                     out.flush();
                     out.writeObject(artistNames);
@@ -93,35 +95,43 @@ public class Publisher extends Node{
 
     //method that waits for requests by brokers in order to send them the appropriate chunks
     private void waitRequest() {
-        try {
-            serverSocket = new ServerSocket(this.getPort());
-            while (true) {
-                try {
-                    Socket s = serverSocket.accept();
-                    ObjectOutputStream out = new ObjectOutputStream(s.getOutputStream());
-                    ObjectInputStream in = new ObjectInputStream(s.getInputStream());
-                    Thread job = new Thread(() ->
-                    {
-                        handleRequest(s,out,in);
+        Thread m = new Thread(() ->
+        {
+            try {
+                serverSocket = new ServerSocket(this.getPort());
+                while (true) {
+                    try {
+                        Socket s = serverSocket.accept();
+                        ObjectOutputStream out = new ObjectOutputStream(s.getOutputStream());
+                        ObjectInputStream in = new ObjectInputStream(s.getInputStream());
+                        String flag = (String) in.readObject();
+                        if(flag.equalsIgnoreCase("exit")){
+                            break;
+                        }
+                        Thread job = new Thread(() ->
+                        {
+                            handleRequest(s, out, in);
 
-                    });
-                    job.start();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    //break;
+                        });
+                        job.start();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        //break;
+                    }
+                }
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                try {
+                    System.out.println(this.getName() + " closes " + "server socket in port " + this.getPort());
+                    serverSocket.close();
+                } catch (IOException ioException) {
+                    ioException.printStackTrace();
                 }
             }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        finally {
-            try {
-                serverSocket.close();
-            } catch (IOException ioException) {
-                ioException.printStackTrace();
-            }
-        }
+        });
+        m.start();
     }
 
     //handle the requests of brokers for chunks
@@ -248,6 +258,67 @@ public class Publisher extends Node{
 
     public void setKeys(String keys){this.keys = keys;}
 
+    //shutting down publisher
+    public void exit() {
+        informBrokersThatPubLeave();
+        Socket exitSocket = null;
+        ObjectInputStream exitIn = null;
+        ObjectOutputStream exitOut = null;
+        try {
+            exitSocket = new Socket(this.getIp(), this.getPort());
+            exitIn = new ObjectInputStream(exitSocket.getInputStream());
+            exitOut = new ObjectOutputStream(exitSocket.getOutputStream());
+            exitOut.writeObject("exit");
+            exitOut.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            super.disconnect(exitSocket, exitIn, exitOut);
+        }
+    }
+
+    //inform brokers that this publisher leaves from system
+    private void informBrokersThatPubLeave() {
+        List<ArtistName> artistNames = new ArrayList<>(this.getListOfSongs().keySet());
+        HashMap<String[],List<ArtistName>> removedArtists = new HashMap<>();
+        for(String[] b : this.getListOfBrokersRelatedArtists().keySet()) {
+            List<ArtistName> permant = new ArrayList<>();
+            for (ArtistName a : artistNames) {
+                if (this.getListOfBrokersRelatedArtists().get(b).contains(a)) {
+                    permant.add(a);
+                }
+            }
+            if (!permant.isEmpty()) {
+                removedArtists.put(b, permant);
+            }
+        }
+        if(!removedArtists.isEmpty()) {
+            for (String[] broker : removedArtists.keySet()) {
+                Thread t = new Thread(() ->
+                {
+                    Socket s = null;
+                    ObjectOutputStream out = null;
+                    ObjectInputStream in = null;
+                    try {
+                        s = new Socket(broker[1], Integer.parseInt(broker[2]));
+                        out = new ObjectOutputStream(s.getOutputStream());
+                        in = new ObjectInputStream(s.getInputStream());
+                        out.writeObject(this.getClass().getSimpleName());
+                        out.flush();
+                        out.writeObject("leave");
+                        out.flush();
+                        out.writeObject(removedArtists.get(broker));
+                        out.flush();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    } finally {
+                        super.disconnect(s, in, out);
+                    }
+                });
+                t.start();
+            }
+        }
+    }
 
 
     //MAIN
@@ -257,6 +328,19 @@ public class Publisher extends Node{
         args[2]->publisher's keys that he is responsible for them(give the initial letters of artists for whom the publisher will be responsible)
      */
     public static void main(String[] arg){
-        new Publisher(arg[0],Integer.parseInt(arg[1]),arg[2]);
+        //System.out.println("Type exit if you want to close publisher");
+        Publisher p =new Publisher(arg[0],Integer.parseInt(arg[1]),arg[2]);
+        Scanner scn = new Scanner(System.in);
+        String s = scn.next();
+        while(true) {
+            if(s.equals("exit")) {
+                p.exit();
+                break;
+            }
+            s = scn.next();
+        }
+        scn.close();
+
     }
+
 }
