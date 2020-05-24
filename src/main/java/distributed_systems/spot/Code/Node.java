@@ -4,7 +4,7 @@
     STEFANOS PAVLOPOULOS 3130168
     GIANNIS IPSILANTIS 3130215
  */
-
+package distributed_systems.spot.Code;
 import java.io.*;
 import java.net.InetAddress;
 import java.net.*;
@@ -43,6 +43,7 @@ public class Node{
     public void init(int port){
         try {
             InetAddress ia = InetAddress.getLocalHost();
+            //System.out.println(ia);
             this.setIp(ia.getHostAddress());
         } catch (Exception e) {
             e.printStackTrace();

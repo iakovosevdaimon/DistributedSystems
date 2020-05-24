@@ -1,3 +1,4 @@
+package distributed_systems.spot.Code;
 /*
     IAKOVOS EVDAIMON 3130059
     NIKOS KOULOS 3150079

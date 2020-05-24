@@ -4,7 +4,7 @@
     STEFANOS PAVLOPOULOS 3130168
     GIANNIS IPSILANTIS 3130215
  */
-
+package distributed_systems.spot.Code;
 import java.io.Serializable;
 
 public class Value implements Serializable {

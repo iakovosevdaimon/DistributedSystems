@@ -1,3 +1,4 @@
+package distributed_systems.spot.Code;
 /*
     IAKOVOS EVDAIMON 3130059
     NIKOS KOULOS 3150079
@@ -16,7 +17,7 @@ import java.util.*;
 
 import static java.lang.Thread.sleep;
 
-
+//TODO NA DW GT DN KANEI UPDATE TON EAYTO TOY KAI SKAEI STO CALCULATE KEYS STHN ARXH ME ENAN BROKER->TELIKA FTAIEI OTI GAMIETAI TO LAPTOP ME TIS IP :P
 public class Broker extends Node {
 
     private HashMap<Socket, String> registeredConsumers;
@@ -124,7 +125,7 @@ public class Broker extends Node {
             List<ArtistName> publisherArtists = ( List<ArtistName>) in.readObject();
             for(ArtistName a : publisherArtists){
                 if(this.getRelatedArtists().contains(a)){
-                    //System.out.println(a.getArtistName());
+                    System.out.println(a.getArtistName());
                     this.getRelatedArtists().remove(a);
                     this.getRelatedArtistsOfPubs().remove(a);
                 }
@@ -175,73 +176,90 @@ public class Broker extends Node {
         ObjectInputStream inpub = null;
         ObjectOutputStream outpub = null;
         try {
-            String check = (String) input.readObject();
-            if(check.equalsIgnoreCase("Wake up")){
-                Info info = createInfoObject();
-                output.writeObject(info);
-                output.flush();
-            }
-            String reg =(String) input.readObject();
-            if(reg.equalsIgnoreCase("Register")) {
-                String con = (String) input.readObject();
-                synchronized (this.getRegisteredConsumers()) {
-                    this.getRegisteredConsumers().put(s, con);
+            while(true) {
+                String check = (String) input.readObject();
+                if (check.equalsIgnoreCase("Wake up")) {
+                    Info info = createInfoObject();
+                    output.writeObject(info);
+                    output.flush();
                 }
-                ArtistName a = (ArtistName) input.readObject();
-                String song = (String) input.readObject();
-                String[] pub = null;
-                for (ArtistName art : this.getRelatedArtistsOfPubs().keySet()) {
-                    if (art.getArtistName().equalsIgnoreCase(a.getArtistName())) {
-                        pub = this.getRelatedArtistsOfPubs().get(art);
+                String reg = (String) input.readObject();
+                if (reg.equalsIgnoreCase("Register")) {
+                    String con = (String) input.readObject();
+                    synchronized (this.getRegisteredConsumers()) {
+                        this.getRegisteredConsumers().put(s, con);
+                    }
+                    ArtistName a = (ArtistName) input.readObject();
+                    if(a==null){
                         break;
                     }
-                }
-
-                if (pub != null) {
-                    pubrequest = new Socket(pub[1], Integer.parseInt(pub[2]));
-                    inpub = new ObjectInputStream(pubrequest.getInputStream());
-                    outpub = new ObjectOutputStream(pubrequest.getOutputStream());
-                    synchronized (this.getRegisteredPublishers()){
-                        this.getRegisteredPublishers().put(pubrequest,pub);
+                    //System.out.println(a.getArtistName());
+                    //String song = (String) input.readObject();
+                    //TODO na psaxnei na vrei thn lista twn songs tou artist
+                    String[] pub = null;
+                    for (ArtistName art : this.getRelatedArtistsOfPubs().keySet()) {
+                        if (art.getArtistName().equalsIgnoreCase(a.getArtistName())) {
+                            pub = this.getRelatedArtistsOfPubs().get(art);
+                            break;
+                        }
                     }
-                    outpub.writeObject("new request");
-                    outpub.flush();
-                    String[] infos = new String[3];
-                    infos[0] = this.getName();
-                    infos[1] = this.getIp();
-                    infos[2] = Integer.toString(this.getPort());
-                    outpub.writeObject(infos);
-                    outpub.flush();
-                    Value value;
-                    do {
-                        value = pull(a, song, inpub, outpub);
+
+                    if (pub != null) {
+                        pubrequest = new Socket(pub[1], Integer.parseInt(pub[2]));
+                        inpub = new ObjectInputStream(pubrequest.getInputStream());
+                        outpub = new ObjectOutputStream(pubrequest.getOutputStream());
+                        synchronized (this.getRegisteredPublishers()) {
+                            this.getRegisteredPublishers().put(pubrequest, pub);
+                        }
+                        outpub.writeObject("new request");
+                        outpub.flush();
+                        String[] infos = new String[3];
+                        infos[0] = this.getName();
+                        infos[1] = this.getIp();
+                        infos[2] = Integer.toString(this.getPort());
+                        outpub.writeObject(infos);
+                        outpub.flush();
+                        outpub.writeObject(a);
+                        outpub.flush();
+                        List<String> songList = (List<String>) inpub.readObject();
+                        output.writeObject(songList);
+                        output.flush();
+                        String song = (String) input.readObject();
+                        if(song.equalsIgnoreCase("exit")){
+                            break;
+                        }
+                        outpub.writeObject(song);
+                        outpub.flush();
+                        Value value;
+                        do {
+                            value = pull(a, song, inpub, outpub);
+                            //System.out.println(value);
+                            output.writeObject(value);
+                            output.flush();
+                            sleep(100);
+                            if (value != null) {
+                                if (value.getFailure()) {
+                                    break;
+                                }
+                            }
+                        } while (value != null);
+                        synchronized (this.getRegisteredPublishers()) {
+                            this.getRegisteredPublishers().remove(pubrequest);
+                        }
+                    } else {
+                        Value value = new Value();
+                        value.setFailure(true);
                         output.writeObject(value);
                         output.flush();
-                        sleep(100);
-                        if (value != null) {
-                            if (value.getFailure()) {
-                                break;
-                            }
-                        }
-                    } while (value != null);
-                    synchronized (this.getRegisteredPublishers()){
-                        this.getRegisteredPublishers().remove(pubrequest);
+                        System.out.println("Unable to find capable publisher");
                     }
-                }
-                else {
-                    Value value = new Value();
-                    value.setFailure(true);
-                    output.writeObject(value);
-                    output.flush();
-                    System.out.println("Unable to find capable publisher");
-                }
+                    String trash = (String) input.readObject();
+                    if(trash.equalsIgnoreCase("exit"))
+                        break;
 
-                Info info = createInfoObject();
-                output.writeObject(info);
-                output.flush();
-                String trash = (String) input.readObject();
-                synchronized (this.getRegisteredConsumers()) {
-                    this.getRegisteredConsumers().remove(s);
+                }
+                else{
+                    break;
                 }
             }
         } catch (Exception e) {
@@ -258,6 +276,11 @@ public class Broker extends Node {
             }
         }
         finally {
+            if(this.getRegisteredConsumers().containsKey(s)){
+                synchronized (this.getRegisteredConsumers()){
+                    this.getRegisteredConsumers().remove(s);
+                }
+            }
             try {
                 s.close();
                 input.close();
@@ -284,17 +307,19 @@ public class Broker extends Node {
     private Value pull(ArtistName artistName, String song, ObjectInputStream inpub, ObjectOutputStream outpub){
         Value v = null;
         try {
-            outpub.writeObject(artistName);
-            outpub.flush();
-            outpub.writeObject(song);
-            outpub.flush();
-            v = (Value) inpub.readObject();
 
+            v = (Value) inpub.readObject();
             if(v == null){
 
                 outpub.writeObject(null);
                 outpub.flush();
                 outpub.writeObject(null);
+                outpub.flush();
+            }
+            else{
+                outpub.writeObject(artistName);
+                outpub.flush();
+                outpub.writeObject(song);
                 outpub.flush();
             }
             return v;
@@ -331,9 +356,7 @@ public class Broker extends Node {
     public void update(int flag){
         for (int i=0; i<this.getBrokers().size(); i++){
             if(this.getBrokers().get(i).getBrokerInfo().get(0).equalsIgnoreCase(this.getName())&& this.getBrokers().get(i).getBrokerInfo().get(1).equalsIgnoreCase(this.getIp()) && Integer.parseInt(this.getBrokers().get(i).getBrokerInfo().get(2)) == this.getPort()){
-
                 if (flag==1) {
-
                     this.getBrokers().get(i).getBrokerInfo().add(String.valueOf(this.isAlive));
                     this.getBrokers().get(i).getBrokerInfo().add(this.hashCodeOfBroker.toString());
                 }
@@ -399,6 +422,7 @@ public class Broker extends Node {
         BigInteger distance = BigInteger.ZERO;
         BigInteger previousDistance = BigInteger.ZERO;
         int count = 0;
+
         //find broker with maximum hash and broker with the previous hash of this broker's hash
         for(BrokerInfo b : this.getBrokers()){
 

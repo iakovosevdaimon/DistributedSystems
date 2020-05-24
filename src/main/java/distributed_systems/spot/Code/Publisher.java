@@ -4,7 +4,7 @@
     STEFANOS PAVLOPOULOS 3130168
     GIANNIS IPSILANTIS 3130215
  */
-
+package distributed_systems.spot.Code;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -22,6 +22,7 @@ public class Publisher extends Node{
     private List<String[]> listOfBrokers;
     private String keys;
     private ServerSocket serverSocket;
+    private List<Thread> threadList;
 
 
     public Publisher(){super();}
@@ -34,6 +35,7 @@ public class Publisher extends Node{
         this.listOfSongs = new HashMap<>();
         this.listOfBrokersRelatedArtists = new HashMap<>();
         this.listOfBrokers = new ArrayList<>();
+        this.threadList = new ArrayList<>();
         this.init();
         this.connect();
         this.waitRequest();
@@ -90,6 +92,7 @@ public class Publisher extends Node{
                 }
             });
             t.start();
+            threadList.add(t);
         }
     }
 
@@ -142,44 +145,58 @@ public class Publisher extends Node{
                 this.getRegisteredBrokers().put(s,infos);
             }
             boolean songExist = false;
+            boolean artistExist = false;
             ArtistName artist = (ArtistName) input.readObject();
-            String song = (String) input.readObject();
+            //TODO MUST CHANGE TO RETURN LIST OF SONGS OF SPECIFIC ARTIST
+            //String song = (String) input.readObject();
             ArtistName index1 = null;
             String index2 = null;
-
             for(ArtistName a : this.getListOfSongs().keySet()){
-                if(a.getArtistName().equalsIgnoreCase(artist.getArtistName())){
+                if(a.getArtistName().equalsIgnoreCase(artist.getArtistName())) {
+                    index1 = a;
+                    artistExist = true;
+                    break;
 
-                    for(String str : this.getListOfSongs().get(a).keySet()){
-                        if(str.equalsIgnoreCase(song)){
 
-                            index1 = a;
-                            index2 = str;
-                            songExist = true;
-                            break;
-                        }
-
+                }
+            }
+            if(artistExist) {
+                //send list of songs of this artist
+                List<String> songsOfThisArtist = new ArrayList<>(this.getListOfSongs().get(index1).keySet());
+                output.writeObject(songsOfThisArtist);
+                output.flush();
+                //read song that user has selected
+                String song = (String) input.readObject();
+                //check if song exist
+                for (String str : this.getListOfSongs().get(index1).keySet()) {
+                    if (str.equalsIgnoreCase(song)) {
+                        index2 = str;
+                        songExist = true;
+                        break;
                     }
                 }
-                if(songExist)
-                    break;
-            }
-            //call push
-            if(songExist){
-                Queue<MusicFile> tem_queue = new LinkedList<>(this.getListOfSongs().get(index1).get(index2));
-                do{
-                    Value v = push(index1,tem_queue);
-                    output.writeObject(v);
-                    artist =(ArtistName) input.readObject();
-                    song = (String) input.readObject();
-                }while(artist!=null && song!=null);
+                //call push
+                if (songExist) {
+                    Queue<MusicFile> tem_queue = new LinkedList<>(this.getListOfSongs().get(index1).get(index2));
+                    do {
+                        Value v = push(index1, tem_queue);
+                        output.writeObject(v);
+                        artist = (ArtistName) input.readObject();
+                        song = (String) input.readObject();
+                    } while (artist != null && song != null);
+                }
+                //notifyFailure
+                else {
+                    notifyFailure(output);
+
+                }
             }
             //notifyFailure
             else{
                 notifyFailure(output);
-
             }
-            synchronized (this.getRegisteredBrokers()){
+            //update list of registered brokers in this publisher
+            synchronized (this.getRegisteredBrokers()) {
                 this.getRegisteredBrokers().remove(s);
             }
 
@@ -259,6 +276,7 @@ public class Publisher extends Node{
     public void setKeys(String keys){this.keys = keys;}
 
     //shutting down publisher
+    //TODO WAIT FOR THREADS TO JOIN
     public void exit() {
         informBrokersThatPubLeave();
         Socket exitSocket = null;
@@ -274,6 +292,13 @@ public class Publisher extends Node{
             e.printStackTrace();
         } finally {
             super.disconnect(exitSocket, exitIn, exitOut);
+        }
+        for(Thread t:this.threadList){
+            try {
+                t.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
     }
 

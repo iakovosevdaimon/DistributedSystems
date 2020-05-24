@@ -4,7 +4,7 @@
     STEFANOS PAVLOPOULOS 3130168
     GIANNIS IPSILANTIS 3130215
  */
-
+package distributed_systems.spot.Code;
 import com.mpatric.mp3agic.*;
 import javax.swing.*;
 import javax.swing.filechooser.FileSystemView;
@@ -165,7 +165,6 @@ public class Utility {
         File currentDirectory = new File(new File(".").getAbsolutePath());
         String currentDirectoryPath = currentDirectory.getAbsolutePath()
                 .substring(0,currentDirectory.getAbsolutePath().length() - 1);
-
         /* txt Files Base Path */
         String basePath = currentDirectoryPath+"Data\\";
 
