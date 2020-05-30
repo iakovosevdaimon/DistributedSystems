@@ -175,90 +175,133 @@ public class Broker extends Node {
         Socket pubrequest = null;
         ObjectInputStream inpub = null;
         ObjectOutputStream outpub = null;
+        String stage;
+        ArtistName a=null;
         try {
             while(true) {
-                String check = (String) input.readObject();
-                if (check.equalsIgnoreCase("Wake up")) {
-                    Info info = createInfoObject();
-                    output.writeObject(info);
-                    output.flush();
-                }
-                String reg = (String) input.readObject();
-                if (reg.equalsIgnoreCase("Register")) {
-                    String con = (String) input.readObject();
-                    synchronized (this.getRegisteredConsumers()) {
-                        this.getRegisteredConsumers().put(s, con);
+                stage = (String) input.readObject();
+                if (stage.equalsIgnoreCase("init")) {
+                    String check = (String) input.readObject();
+                    if (check.equalsIgnoreCase("Wake up")) {
+                        Info info = createInfoObject();
+                        output.writeObject(info);
+                        output.flush();
+                        String answer = (String) input.readObject();
+                        while (answer == null) {
+                            info = createInfoObject();
+                            output.writeObject(info);
+                            output.flush();
+                            answer = (String) input.readObject();
+                        }
+                        if (answer.equalsIgnoreCase("exit")) {
+                            break;
+                        }
                     }
-                    ArtistName a = (ArtistName) input.readObject();
-                    if(a==null){
+                } else if (stage.equalsIgnoreCase("artist")) {
+                    String reg = (String) input.readObject();
+                    if (reg.equalsIgnoreCase("Register")) {
+                        String con = (String) input.readObject();
+                        synchronized (this.getRegisteredConsumers()) {
+                            this.getRegisteredConsumers().put(s, con);
+                        }
+                        a = (ArtistName) input.readObject();
+                        if (a == null) {
+                            break;
+                        }
+                        //System.out.println(a.getArtistName());
+                        //String song = (String) input.readObject();
+                        //TODO na psaxnei na vrei thn lista twn songs tou artist
+                        String[] pub = null;
+                        for (ArtistName art : this.getRelatedArtistsOfPubs().keySet()) {
+                            if (art.getArtistName().equalsIgnoreCase(a.getArtistName())) {
+                                pub = this.getRelatedArtistsOfPubs().get(art);
+                                break;
+                            }
+                        }
+
+                        if (pub != null) {
+                            pubrequest = new Socket(pub[1], Integer.parseInt(pub[2]));
+                            inpub = new ObjectInputStream(pubrequest.getInputStream());
+                            outpub = new ObjectOutputStream(pubrequest.getOutputStream());
+                            synchronized (this.getRegisteredPublishers()) {
+                                this.getRegisteredPublishers().put(pubrequest, pub);
+                            }
+                            outpub.writeObject("new request");
+                            outpub.flush();
+                            String[] infos = new String[3];
+                            infos[0] = this.getName();
+                            infos[1] = this.getIp();
+                            infos[2] = Integer.toString(this.getPort());
+                            outpub.writeObject(infos);
+                            outpub.flush();
+                            outpub.writeObject(a);
+                            outpub.flush();
+                            List<String> songList = (List<String>) inpub.readObject();
+                            output.writeObject(songList);
+                            output.flush();
+                        } else {
+                            output.writeObject(null);
+                            output.flush();
+                        }
+                    } else {
                         break;
                     }
-                    //System.out.println(a.getArtistName());
-                    //String song = (String) input.readObject();
-                    //TODO na psaxnei na vrei thn lista twn songs tou artist
-                    String[] pub = null;
-                    for (ArtistName art : this.getRelatedArtistsOfPubs().keySet()) {
-                        if (art.getArtistName().equalsIgnoreCase(a.getArtistName())) {
-                            pub = this.getRelatedArtistsOfPubs().get(art);
-                            break;
-                        }
-                    }
-
-                    if (pub != null) {
-                        pubrequest = new Socket(pub[1], Integer.parseInt(pub[2]));
-                        inpub = new ObjectInputStream(pubrequest.getInputStream());
-                        outpub = new ObjectOutputStream(pubrequest.getOutputStream());
-                        synchronized (this.getRegisteredPublishers()) {
-                            this.getRegisteredPublishers().put(pubrequest, pub);
-                        }
-                        outpub.writeObject("new request");
+                }
+                else if (stage.equalsIgnoreCase("song")) {
+                    String song = (String) input.readObject();
+                    if(song.equalsIgnoreCase("exit")){
+                        outpub.writeObject("exit");
                         outpub.flush();
-                        String[] infos = new String[3];
-                        infos[0] = this.getName();
-                        infos[1] = this.getIp();
-                        infos[2] = Integer.toString(this.getPort());
-                        outpub.writeObject(infos);
-                        outpub.flush();
-                        outpub.writeObject(a);
-                        outpub.flush();
-                        List<String> songList = (List<String>) inpub.readObject();
-                        output.writeObject(songList);
-                        output.flush();
-                        String song = (String) input.readObject();
-                        if(song.equalsIgnoreCase("exit")){
-                            break;
-                        }
-                        outpub.writeObject(song);
-                        outpub.flush();
-                        Value value;
-                        do {
-                            value = pull(a, song, inpub, outpub);
-                            //System.out.println(value);
-                            output.writeObject(value);
-                            output.flush();
-                            sleep(100);
-                            if (value != null) {
-                                if (value.getFailure()) {
-                                    break;
-                                }
-                            }
-                        } while (value != null);
                         synchronized (this.getRegisteredPublishers()) {
                             this.getRegisteredPublishers().remove(pubrequest);
                         }
-                    } else {
-                        Value value = new Value();
-                        value.setFailure(true);
+                        break;
+                    }
+                    outpub.writeObject(song);
+                    outpub.flush();
+                    Value value;
+                    String ch = "ok";
+                    do {
+                        value = pull(a, song, inpub, outpub,ch);
+                        if(ch.equalsIgnoreCase("stop")){
+                            sleep(100);
+                            break;
+                        }
+                        //System.out.println(value);
                         output.writeObject(value);
                         output.flush();
-                        System.out.println("Unable to find capable publisher");
+                        ch = (String)input.readObject();
+                        sleep(100);
+                        if (value != null) {
+                            if (value.getFailure()) {
+                                break;
+                            }
+                        }
                     }
+                    while (value != null);
+                    synchronized (this.getRegisteredPublishers()) {
+                        this.getRegisteredPublishers().remove(pubrequest);
+                    }
+                    if(pubrequest!=null) {
+                        System.out.println("Close connection with publisher");
+                        pubrequest.close();
+                        pubrequest=null;
+                    }
+                    if(outpub!=null) {
+                        outpub.close();
+                        outpub = null;
+                    }
+                    if(inpub!=null) {
+                        inpub.close();
+                        inpub = null;
+                    }
+
                     String trash = (String) input.readObject();
                     if(trash.equalsIgnoreCase("exit"))
                         break;
 
                 }
-                else{
+                else if(stage.equalsIgnoreCase("exit")){
                     break;
                 }
             }
@@ -304,12 +347,11 @@ public class Broker extends Node {
       each time that publisher sends to broker a new chunk, broker calls method pull in order to make a new request
       to publisher for the next chunk
     */
-    private Value pull(ArtistName artistName, String song, ObjectInputStream inpub, ObjectOutputStream outpub){
+    private Value pull(ArtistName artistName, String song, ObjectInputStream inpub, ObjectOutputStream outpub,String ch){
         Value v = null;
         try {
-
             v = (Value) inpub.readObject();
-            if(v == null){
+            if(v == null || ch.equalsIgnoreCase("stop")){
 
                 outpub.writeObject(null);
                 outpub.flush();

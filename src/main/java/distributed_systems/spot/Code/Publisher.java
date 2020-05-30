@@ -167,28 +167,30 @@ public class Publisher extends Node{
                 output.flush();
                 //read song that user has selected
                 String song = (String) input.readObject();
-                //check if song exist
-                for (String str : this.getListOfSongs().get(index1).keySet()) {
-                    if (str.equalsIgnoreCase(song)) {
-                        index2 = str;
-                        songExist = true;
-                        break;
+                if(!song.equalsIgnoreCase("exit")) {
+                    //check if song exist
+                    for (String str : this.getListOfSongs().get(index1).keySet()) {
+                        if (str.equalsIgnoreCase(song)) {
+                            index2 = str;
+                            songExist = true;
+                            break;
+                        }
                     }
-                }
-                //call push
-                if (songExist) {
-                    Queue<MusicFile> tem_queue = new LinkedList<>(this.getListOfSongs().get(index1).get(index2));
-                    do {
-                        Value v = push(index1, tem_queue);
-                        output.writeObject(v);
-                        artist = (ArtistName) input.readObject();
-                        song = (String) input.readObject();
-                    } while (artist != null && song != null);
-                }
-                //notifyFailure
-                else {
-                    notifyFailure(output);
+                    //call push
+                    if (songExist) {
+                        Queue<MusicFile> tem_queue = new LinkedList<>(this.getListOfSongs().get(index1).get(index2));
+                        do {
+                            Value v = push(index1, tem_queue);
+                            output.writeObject(v);
+                            artist = (ArtistName) input.readObject();
+                            song = (String) input.readObject();
+                        } while (artist != null && song != null);
+                    }
+                    //notifyFailure
+                    else {
+                        notifyFailure(output);
 
+                    }
                 }
             }
             //notifyFailure
