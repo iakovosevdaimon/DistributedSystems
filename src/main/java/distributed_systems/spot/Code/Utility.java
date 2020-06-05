@@ -73,6 +73,7 @@ public class Utility {
                                             String albumInfo = id3v2Tag.getAlbum();
                                             sing.setId(chunksCounter);
                                             sing.setAlbumInfo(albumInfo);
+                                            sing.setOverallDuration(song.getLengthInMilliseconds());
                                             if(id3v2Tag.getGenreDescription()==null){
                                                 String genre = "unknown";
                                                 sing.setGenre(genre);

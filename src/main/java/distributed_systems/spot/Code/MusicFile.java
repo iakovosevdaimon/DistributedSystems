@@ -17,6 +17,8 @@ public class MusicFile implements Serializable {
     private String trackName, artistName, albumInfo, genre;
     private int id;
     private byte[] musicFileExtract;
+    //in milliseconds
+    private long overallDuration;
 
     public  MusicFile(){}
 
@@ -26,6 +28,16 @@ public class MusicFile implements Serializable {
         this.artistName = artistName;
         this.albumInfo = albumInfo;
         this.genre=genre;
+        this.musicFileExtract=musicFileExtract;
+    }
+
+    public MusicFile(int id, String trackName, String artistName, String albumInfo, String genre,long overallDuration ,byte[] musicFileExtract) {
+        this.id = id;
+        this.trackName = trackName;
+        this.artistName = artistName;
+        this.albumInfo = albumInfo;
+        this.genre=genre;
+        this.overallDuration = overallDuration;
         this.musicFileExtract=musicFileExtract;
     }
 
@@ -70,4 +82,8 @@ public class MusicFile implements Serializable {
     public String getTrackName() {
         return this.trackName;
     }
+
+    public long getOverallDuration(){return this.overallDuration;}
+
+    public void setOverallDuration(long overallDuration){this.overallDuration=overallDuration;}
 }
