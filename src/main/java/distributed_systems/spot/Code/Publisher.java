@@ -303,7 +303,7 @@ public class Publisher extends Node{
                 e.printStackTrace();
             }
         }
-        System.out.println("All threads are terminated");
+        //System.out.println("All threads are terminated");
     }
 
     //inform brokers that this publisher leaves from system

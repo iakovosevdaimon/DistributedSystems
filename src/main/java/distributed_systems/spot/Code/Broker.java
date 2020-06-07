@@ -260,49 +260,70 @@ public class Broker extends Node {
                         }
                         break;
                     }
-                    outpub.writeObject(song);
-                    outpub.flush();
-                    Value value;
-                    String ch = "ok";
-                    do {
-                        value = pull(a, song, inpub, outpub,ch);
-                        if(ch.equalsIgnoreCase("stop")){
-                            //sleep(100);
-                            break;
-                        }
-                        //System.out.println(value);
-                        output.writeObject(value);
+                    if(!checkIfPubIsAlive(a)){
+                        Value val = new Value();
+                        val.setFailure(true);
+                        output.writeObject(val);
                         output.flush();
-                        ch = (String)input.readObject();
-                        //sleep(100);
-                        if (value != null) {
-                            if (value.getFailure()) {
+                        String temp = (String) input.readObject();
+                        if(pubrequest!=null) {
+                            System.out.println("Close connection with publisher");
+                            pubrequest.close();
+                            pubrequest=null;
+                        }
+                        if(outpub!=null) {
+                            outpub.close();
+                            outpub = null;
+                        }
+                        if(inpub!=null) {
+                            inpub.close();
+                            inpub = null;
+                        }
+                    }
+                    else {
+                        outpub.writeObject(song);
+                        outpub.flush();
+                        Value value;
+                        String ch = "ok";
+                        do {
+                            value = pull(a, song, inpub, outpub, ch);
+                            if (ch.equalsIgnoreCase("stop")) {
+                                //sleep(100);
                                 break;
                             }
+                            //System.out.println(value);
+                            output.writeObject(value);
+                            output.flush();
+                            ch = (String) input.readObject();
+                            //sleep(100);
+                            if (value != null) {
+                                if (value.getFailure()) {
+                                    break;
+                                }
+                            }
                         }
-                    }
-                    while (value != null);
-                    synchronized (this.getRegisteredPublishers()) {
-                        this.getRegisteredPublishers().remove(pubrequest);
-                    }
-                    if(pubrequest!=null) {
-                        System.out.println("Close connection with publisher");
-                        pubrequest.close();
-                        pubrequest=null;
-                    }
-                    if(outpub!=null) {
-                        outpub.close();
-                        outpub = null;
-                    }
-                    if(inpub!=null) {
-                        inpub.close();
-                        inpub = null;
+                        while (value != null);
+                        synchronized (this.getRegisteredPublishers()) {
+                            this.getRegisteredPublishers().remove(pubrequest);
+                        }
+                        if (pubrequest != null) {
+                            System.out.println("Close connection with publisher");
+                            pubrequest.close();
+                            pubrequest = null;
+                        }
+                        if (outpub != null) {
+                            outpub.close();
+                            outpub = null;
+                        }
+                        if (inpub != null) {
+                            inpub.close();
+                            inpub = null;
+                        }
                     }
                     previousStage = "song";
                     String trash = (String) input.readObject();
-                    if(trash.equalsIgnoreCase("exit"))
+                    if (trash.equalsIgnoreCase("exit"))
                         break;
-
                 }
                 else if(stage.equalsIgnoreCase("exit")){
                     if(previousStage.equalsIgnoreCase("artist")){
@@ -351,6 +372,18 @@ public class Broker extends Node {
             }
         }
 
+    }
+
+    private boolean checkIfPubIsAlive(ArtistName a) {
+        String[] pub = null;
+        for (ArtistName art : this.getRelatedArtistsOfPubs().keySet()) {
+            if (art.getArtistName().equalsIgnoreCase(a.getArtistName())) {
+                pub = this.getRelatedArtistsOfPubs().get(art);
+                break;
+            }
+        }
+
+        return pub != null;
     }
 
     /*
