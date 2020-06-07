@@ -297,11 +297,13 @@ public class Publisher extends Node{
         }
         for(Thread t:this.threadList){
             try {
+                System.out.println("Wait for thread "+t.getName()+" to terminate");
                 t.join();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
         }
+        System.out.println("All threads are terminated");
     }
 
     //inform brokers that this publisher leaves from system

@@ -176,6 +176,7 @@ public class Broker extends Node {
         ObjectInputStream inpub = null;
         ObjectOutputStream outpub = null;
         String stage;
+        String previousStage="init";
         ArtistName a=null;
         try {
             while(true) {
@@ -197,6 +198,7 @@ public class Broker extends Node {
                             break;
                         }
                     }
+                    previousStage = "init";
                 } else if (stage.equalsIgnoreCase("artist")) {
                     String reg = (String) input.readObject();
                     if (reg.equalsIgnoreCase("Register")) {
@@ -246,6 +248,7 @@ public class Broker extends Node {
                     } else {
                         break;
                     }
+                    previousStage = "artist";
                 }
                 else if (stage.equalsIgnoreCase("song")) {
                     String song = (String) input.readObject();
@@ -264,14 +267,14 @@ public class Broker extends Node {
                     do {
                         value = pull(a, song, inpub, outpub,ch);
                         if(ch.equalsIgnoreCase("stop")){
-                            sleep(100);
+                            //sleep(100);
                             break;
                         }
                         //System.out.println(value);
                         output.writeObject(value);
                         output.flush();
                         ch = (String)input.readObject();
-                        sleep(100);
+                        //sleep(100);
                         if (value != null) {
                             if (value.getFailure()) {
                                 break;
@@ -295,13 +298,20 @@ public class Broker extends Node {
                         inpub.close();
                         inpub = null;
                     }
-
+                    previousStage = "song";
                     String trash = (String) input.readObject();
                     if(trash.equalsIgnoreCase("exit"))
                         break;
 
                 }
                 else if(stage.equalsIgnoreCase("exit")){
+                    if(previousStage.equalsIgnoreCase("artist")){
+                        outpub.writeObject("exit");
+                        outpub.flush();
+                        synchronized (this.getRegisteredPublishers()) {
+                            this.getRegisteredPublishers().remove(pubrequest);
+                        }
+                    }
                     break;
                 }
             }
