@@ -129,7 +129,7 @@ public class Consumer extends Node{
         }
     }
 
-    //TODO
+
     private void publishProgress(Object item, int flag) {
         if(flag==0){
             Info info = (Info) item;
