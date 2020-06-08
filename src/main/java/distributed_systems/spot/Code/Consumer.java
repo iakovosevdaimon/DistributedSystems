@@ -109,7 +109,10 @@ public class Consumer extends Node{
                         stage = "init";
                     }
                 } else if (stage.equalsIgnoreCase("song")) {
-                    transaction(song);
+                    String ans = transaction(song);
+                    if(ans.equalsIgnoreCase("exit")){
+                        break;
+                    }
 
                 }
             }
@@ -173,7 +176,7 @@ public class Consumer extends Node{
                 }
                 if (!isOK) {
                     System.out.println("Artist name is not founded");
-                    System.out.println("Please give an other artist name: ");
+                    System.out.println("Please give another artist name: ");
                     artist = scn.nextLine().trim();
                 }
             }
@@ -293,7 +296,7 @@ public class Consumer extends Node{
     /* method in order to handle the communication with broker and the transaction with it sending about
        informations about the song that a consumer wants and receiving the appropriate chunks of song
      */
-    private void transaction(String song) {
+    private String transaction(String song) {
 
         try {
             this.out.writeObject(song);
@@ -347,9 +350,11 @@ public class Consumer extends Node{
                 this.out.flush();
                 this.setConnectedBroker(null);
             }
+            return ans1;
         } catch (Exception e) {
             e.printStackTrace();
         }
+        return null;
     }
 
     //method to save chunks that are received by consumer locally in the directory of project with the name Saved Songs
