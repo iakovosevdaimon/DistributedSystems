@@ -147,8 +147,6 @@ public class Publisher extends Node{
             boolean songExist = false;
             boolean artistExist = false;
             ArtistName artist = (ArtistName) input.readObject();
-            //TODO MUST CHANGE TO RETURN LIST OF SONGS OF SPECIFIC ARTIST
-            //String song = (String) input.readObject();
             ArtistName index1 = null;
             String index2 = null;
             for(ArtistName a : this.getListOfSongs().keySet()){
@@ -278,7 +276,6 @@ public class Publisher extends Node{
     public void setKeys(String keys){this.keys = keys;}
 
     //shutting down publisher
-    //TODO WAIT FOR THREADS TO JOIN
     public void exit() {
         informBrokersThatPubLeave();
         Socket exitSocket = null;
@@ -357,7 +354,7 @@ public class Publisher extends Node{
         args[2]->publisher's keys that he is responsible for them(give the initial letters of artists for whom the publisher will be responsible)
      */
     public static void main(String[] arg){
-        //System.out.println("Type exit if you want to close publisher");
+        System.out.println("Type exit if you want to close publisher");
         Publisher p =new Publisher(arg[0],Integer.parseInt(arg[1]),arg[2]);
         Scanner scn = new Scanner(System.in);
         String s = scn.next();

@@ -17,7 +17,7 @@ import java.util.*;
 
 import static java.lang.Thread.sleep;
 
-//TODO NA DW GT DN KANEI UPDATE TON EAYTO TOY KAI SKAEI STO CALCULATE KEYS STHN ARXH ME ENAN BROKER->TELIKA FTAIEI OTI GAMIETAI TO LAPTOP ME TIS IP :P
+
 public class Broker extends Node {
 
     private HashMap<Socket, String> registeredConsumers;
@@ -125,7 +125,6 @@ public class Broker extends Node {
             List<ArtistName> publisherArtists = ( List<ArtistName>) in.readObject();
             for(ArtistName a : publisherArtists){
                 if(this.getRelatedArtists().contains(a)){
-                    System.out.println(a.getArtistName());
                     this.getRelatedArtists().remove(a);
                     this.getRelatedArtistsOfPubs().remove(a);
                 }
@@ -210,9 +209,7 @@ public class Broker extends Node {
                         if (a == null) {
                             break;
                         }
-                        //System.out.println(a.getArtistName());
-                        //String song = (String) input.readObject();
-                        //TODO na psaxnei na vrei thn lista twn songs tou artist
+
                         String[] pub = null;
                         for (ArtistName art : this.getRelatedArtistsOfPubs().keySet()) {
                             if (art.getArtistName().equalsIgnoreCase(a.getArtistName())) {
@@ -291,7 +288,6 @@ public class Broker extends Node {
                                 //sleep(100);
                                 break;
                             }
-                            //System.out.println(value);
                             output.writeObject(value);
                             output.flush();
                             ch = (String) input.readObject();

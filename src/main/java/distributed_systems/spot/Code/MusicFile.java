@@ -10,7 +10,7 @@ package distributed_systems.spot.Code;
 import java.io.*;
 import java.io.Serializable;
 
-//TODO may add id attribute
+
 public class MusicFile implements Serializable {
 
     private static final long serialVersionUID = 5439530636323231447L;

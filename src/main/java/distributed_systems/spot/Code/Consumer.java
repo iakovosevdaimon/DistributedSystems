@@ -10,6 +10,7 @@ package distributed_systems.spot.Code;
 import java.io.*;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Scanner;
 
@@ -22,6 +23,7 @@ public class Consumer extends Node{
     private final Scanner scn;
     private Info info;
     private String[] connectedBroker;
+    private String stage;
 
     public Consumer() {
         super();
@@ -42,44 +44,130 @@ public class Consumer extends Node{
         this.in = this.getInputStream();
         this.out = this.getOutputStream();
         this.requestSocket = this.getSocket();
-        try {
+        handleConnection();
+    }
 
-            this.out.writeObject("Wake up");
-            this.out.flush();
-            findCorrespondingBroker();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        finally {
-            this.disconnect();
+    private void handleConnection() {
+        stage = "init";
+        String artist = null;
+        String song = null;
+        int flag = 0;
+        try {
+            while (true) {
+                out.writeObject(stage);
+                if (stage.equalsIgnoreCase("init")) {
+                    flag=0;
+                    out.writeObject("Wake up");
+                    out.flush();
+                    info = (Info) in.readObject();
+                    while (info.getListOfBrokersInfo().keySet().isEmpty()) {
+                        out.writeObject(null);
+                        out.flush();
+                        info = (Info) in.readObject();
+                    }
+                    out.writeObject("ok");
+                    out.flush();
+                    publishProgress(info,0);
+                    artist=checkArtist();
+                    stage = "artist";
+
+                } else if (stage.equalsIgnoreCase("artist")) {
+                    ArtistName artistName = new ArtistName(artist);
+                    String[] cb = findCorrespondingBroker(artistName, info);
+                    List<String> broker = register(cb, artistName);
+                    if (broker != null) {
+                        if (!(broker.get(0).equalsIgnoreCase("this"))) {
+                            out.writeObject("You are not my comrade");
+                            out.flush();
+                            disconnect();
+                            requestSocket = new Socket(broker.get(1), Integer.parseInt(broker.get(2)));
+                            out = new ObjectOutputStream(requestSocket.getOutputStream());
+                            in = new ObjectInputStream(requestSocket.getInputStream());
+                            out.writeObject("Consumer");
+                            out.flush();
+                            out.writeObject(stage);
+                            out.flush();
+                        }
+                        stage = "song";
+                        out.writeObject("Register");
+                        out.flush();
+                        //get a specific identification for this client
+                        out.writeObject("Consumer");
+                        out.flush();
+                        out.writeObject(artistName);
+                        out.flush();
+                        List<String> allSongs = (ArrayList<String>) in.readObject();
+                        if (allSongs == null) {
+                            stage = "init";
+                            continue;
+                        }
+
+                        publishProgress(allSongs,1);
+                        song = checkSong(allSongs);
+
+                    } else {
+                        stage = "init";
+                    }
+                } else if (stage.equalsIgnoreCase("song")) {
+                    transaction(song);
+
+                }
+            }
+        } catch (Exception ioException) {
+            ioException.printStackTrace();
+        } finally {
+            try {
+                if (in != null)
+                    in.close();
+                if (out != null)
+                    out.close();
+                if (requestSocket != null)
+                    requestSocket.close();
+            } catch (IOException ioException) {
+                ioException.printStackTrace();
+            }
         }
     }
 
-    /*method in order to find the corresponding broker with which consumer must communicate
-      in order to receive the chunks of the song of the artist that consumer wants
-     */
-    private void findCorrespondingBroker() {
+    //TODO
+    private void publishProgress(Object item, int flag) {
+        if(flag==0){
+            Info info = (Info) item;
+            System.out.println("----Choose one of the following artists----");
+            int counter=1;
+            for (ArtistName a : info.getListOfBrokersInfo().keySet()) {
+                System.out.println(counter+". "+a.getArtistName());
+                counter++;
+            }
+        }
+        if(flag==1){
+            List<String> allSongs = (List<String>) item;
+            System.out.println("----Choose one of the following songs----");
+            int counter=1;
+            for (String s : allSongs) {
+                System.out.println(counter+". "+s);
+                counter++;
+            }
+        }
 
+    }
+
+    private String checkArtist(){
+        String artist = null;
         try {
-            this.info = (Info) this.in.readObject();
-            setInfo(this.info);
             System.out.println("Give artist name: ");
-            String artist = scn.nextLine().trim();
+            artist = scn.nextLine().trim();
             boolean isOK = false;
-            String[] cb = null;
-            ArtistName artistName = null;
             while (!isOK) {
                 while (artist.isEmpty()) {
                     System.out.println("Invalid artist name. Try again");
                     System.out.println("Give artist name: ");
                     artist = scn.nextLine().trim();
                 }
-                artistName = new ArtistName(artist);
 
                 for (ArtistName a : this.getInfo().getListOfBrokersInfo().keySet()) {
-                    if (a.getArtistName().equalsIgnoreCase(artistName.getArtistName())) {
+                    if (a.getArtistName().equalsIgnoreCase(artist)){
                         isOK = true;
-                        cb = this.getInfo().getListOfBrokersInfo().get(a).clone();
                         break;
                     }
                 }
@@ -89,15 +177,63 @@ public class Consumer extends Node{
                     artist = scn.nextLine().trim();
                 }
             }
-            register(cb,artistName);
 
         } catch (Exception e) {
             e.printStackTrace();
         }
+        return artist;
+    }
+
+    private String checkSong(List<String> allSongs){
+        System.out.println("Give name of song that you want to listen: ");
+        String song = scn.nextLine().trim();
+        while (song.isEmpty()|| !allSongs.contains(song)) {
+            System.out.println("Invalid song name for this artist. Try again");
+            System.out.println("Give song's name: ");
+            song = scn.nextLine().trim();
+        }
+        return song;
+    }
+
+    /*method in order to find the corresponding broker with which consumer must communicate
+      in order to receive the chunks of the song of the artist that consumer wants
+     */
+    private String[] findCorrespondingBroker(ArtistName artistName,Info info) {
+        String[] cb = null;
+        for (ArtistName a : info.getListOfBrokersInfo().keySet()) {
+            if (a.getArtistName().equalsIgnoreCase(artistName.getArtistName())) {
+                cb = info.getListOfBrokersInfo().get(a).clone();
+                break;
+            }
+        }
+        return cb;
     }
 
     //method to register with the capable broker
-    private void register(String[] broker, ArtistName artistName){
+    private List<String> register(String[] broker, ArtistName artistName){
+        List<String> correctBroker = new ArrayList<>();
+        if(broker!=null && artistName!=null){
+            if((broker[1].equals(this.getIp())) && (Integer.parseInt(broker[2]) == this.getPort())){
+                setConnectedBroker(broker);
+                correctBroker.add("this");
+                return correctBroker;
+            }
+            else{
+                setConnectedBroker(null);
+                correctBroker.add(broker[0]);
+                this.setPort(Integer.parseInt(broker[2]));
+                this.setIp(broker[1]);
+                correctBroker.add(broker[1]);
+                correctBroker.add(broker[2]);
+                return correctBroker;
+            }
+        }
+        else {
+            System.out.println("Null broker or artist name");
+            return null;
+        }
+    }
+    /*private void register(String[] broker, ArtistName artistName){
         if(broker!=null && artistName!=null){
             if((broker[1].equals(this.getIp())) && (Integer.parseInt(broker[2]) == this.getPort())){
 
@@ -144,7 +280,7 @@ public class Consumer extends Node{
             this.disconnect();
         }
 
-    }
+    }*/
 
     private void setConnectedBroker(String[] broker) {
         this.connectedBroker=broker;
@@ -157,36 +293,42 @@ public class Consumer extends Node{
     /* method in order to handle the communication with broker and the transaction with it sending about
        informations about the song that a consumer wants and receiving the appropriate chunks of song
      */
-    private void transaction(ArtistName artistName) {
-        System.out.println("Give name of song that you want to listen from artist "+artistName.getArtistName()+" : ");
-        String song = scn.nextLine().trim();
-        while (song.isEmpty()) {
-            System.out.println("Invalid song name for this artist. Try again");
-            System.out.println("Give song's name: ");
-            song = scn.nextLine().trim();
-        }
+    private void transaction(String song) {
+
         try {
-            this.out.writeObject(artistName);
-            this.out.flush();
             this.out.writeObject(song);
             this.out.flush();
 
             List<Value> valueList = new ArrayList<>();
             Value v = (Value) this.in.readObject();
+			stage = "chunks";
+            out.writeObject("ok");
+            out.flush();
             if (v.getFailure()) {
-                System.out.println("Failure -> Possibly there is not song with this name or there is not this publisher in system");
+                System.out.println("FAILURE! Wrong song or publisher is disconnected");
+                stage = "init";
             }
             else {
                 valueList.add(v);
                 save(v);
                 while (true) {
                     v = (Value) this.in.readObject();
-                    if(v==null)
+                    if(v==null){
+						this.out.writeObject("ok");
                         break;
+					}
                     valueList.add(v);
                     save(v);
+					this.out.writeObject("ok");
                 }
                 mergeChunks(valueList);
+            }
+			if (stage.equalsIgnoreCase("chunks")) {
+                        stage = "init";
+  
+            } 
+			else if (stage.equalsIgnoreCase("song")) {
+                        stage = "artist";
             }
             System.out.println("Type CONTINUE if you want to listen an other songs. Else type EXIT: ");
             String ans1 = scn.nextLine().trim();
@@ -196,13 +338,12 @@ public class Consumer extends Node{
                 ans1 = scn.nextLine().trim();
             }
             if(ans1.equalsIgnoreCase("continue")) {
-                this.setPort(-1);
-                this.setIp(null);
-                findCorrespondingBroker();
+                out.writeObject("keep");
+                out.flush();
             }
             else{
-                this.info = (Info) this.in.readObject();
-                this.out.writeObject(this.getName()+" out");
+       
+                this.out.writeObject("exit");
                 this.out.flush();
                 this.setConnectedBroker(null);
             }
